@@ -1,0 +1,27 @@
+# Stripe Environment Variables Template
+# Copy these to your .env.local file and replace with your actual values
+
+# Stripe API Keys (get from https://dashboard.stripe.com/apikeys)
+STRIPE_SECRET_KEY=sk_test_your_secret_key_here
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
+
+# Stripe Webhook Secret (get from https://dashboard.stripe.com/webhooks)
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+
+# Stripe Product IDs (create products in Stripe dashboard)
+STRIPE_STARTER_PRODUCT_ID=prod_your_starter_product_id
+STRIPE_PRO_PRODUCT_ID=prod_your_pro_product_id
+STRIPE_PREMIUM_PRODUCT_ID=prod_your_premium_product_id
+
+# Stripe Price IDs (create prices for each product)
+STRIPE_STARTER_PRICE_ID=price_your_starter_price_id
+STRIPE_PRO_PRICE_ID=price_your_pro_price_id
+STRIPE_PREMIUM_PRICE_ID=price_your_premium_price_id
+NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID=price_your_starter_price_id
+NEXT_PUBLIC_STRIPE_PRO_PRICE_ID=price_your_pro_price_id
+NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID=price_your_premium_price_id
+
+# Supabase (for user subscription tracking)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key 
