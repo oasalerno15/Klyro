@@ -3,17 +3,31 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-// Use anon key instead of service role key for testing
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Check if environment variables are available
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase environment variables not configured');
+      return NextResponse.json({ 
+        error: 'Server configuration error - Supabase not configured',
+        connected: false,
+        environmentVariables: {
+          supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+          supabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          supabaseServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+        }
+      }, { status: 500 });
+    }
+
+    // Create Supabase client inside the function to avoid build-time issues
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
     const cookieStore = await cookies()
     
-    const supabase = createServerClient(
+    const supabaseServer = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -40,7 +54,7 @@ export async function GET() {
       }
     )
 
-    const { data, error } = await supabase.auth.getSession()
+    const { data, error } = await supabaseServer.auth.getSession()
     
     if (error) {
       console.error('Supabase error:', error)
@@ -60,6 +74,20 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if environment variables are available
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase environment variables not configured');
+      return NextResponse.json({ 
+        error: 'Server configuration error - Supabase not configured'
+      }, { status: 500 });
+    }
+
+    // Create Supabase client inside the function to avoid build-time issues
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
     const { action } = await req.json();
     
     if (action === 'check-user') {

@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(req: NextRequest) {
   try {
+    // Check if environment variables are available
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.warn('Supabase environment variables not configured');
+      return NextResponse.json({ 
+        error: 'Server configuration error - Supabase not configured',
+        fallback: true
+      }, { status: 500 });
+    }
+
+    // Create Supabase client inside the function to avoid build-time issues
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
     const { userId, featureType, increment = 1 } = await req.json();
 
     if (!userId || !featureType) {
