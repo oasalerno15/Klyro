@@ -1,6 +1,8 @@
-# Klyro - Financial Wellness Dashboard
+# Klyro - Financial Wellness App
 
-A modern financial wellness platform that connects your emotional state with your spending habits, providing personalized insights for better financial decisions.
+<!-- Updated for live domain: https://kly-ro.xyz -->
+
+Klyro connects your emotional wellbeing with your financial health, helping you make more mindful money decisions.
 
 ## Features
 
