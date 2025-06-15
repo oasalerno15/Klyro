@@ -5,21 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, startOfDay, endOfDay, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import FinanceSection from '@/components/FinanceSection';
-import LoggingCards from '@/components/LoggingCards';
 import SpendingChart from '@/components/PlaceholderChart';
 import InsightsSection from '@/components/InsightsSection';
 import Tooltip from '@/components/Tooltip';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import RoadmapSection from '@/components/RoadmapSection';
-import { FaPaypal, FaBitcoin, FaApple, FaGoogle, FaAmazon, FaFacebook, FaUber, FaShoppingBag, FaRegCreditCard, FaReceipt, FaMicrosoft, FaSpotify } from 'react-icons/fa';
+import { FaPaypal, FaBitcoin, FaApple, FaGoogle, FaAmazon, FaFacebook, FaUber, FaShoppingBag, FaReceipt, FaMicrosoft, FaSpotify } from 'react-icons/fa';
 import { SiEthereum, SiTether, SiTesla, SiNetflix, SiStarbucks, SiWalmart, SiTarget, SiMcdonalds, SiCocacola, SiVisa, SiMastercard } from 'react-icons/si';
 import React from 'react';
 import ReceiptUpload from '@/components/ReceiptUpload';
 import DatabaseSetupNotice from '@/components/DatabaseSetupNotice';
-import NeedVsWantSelector from '@/components/NeedVsWantSelector';
-import AIInsightDisplay from '@/components/AIInsightDisplay';
 import ProfileModal from '@/components/ProfileModal';
 
 // Placeholder data - in real app would come from API

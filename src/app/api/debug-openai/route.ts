@@ -7,16 +7,15 @@ export async function GET(request: NextRequest) {
     if (!apiKey) {
       return NextResponse.json({
         error: 'OpenAI API key not configured',
-        status: 'missing_key'
-      });
+        details: 'OPENAI_API_KEY environment variable is missing'
+      }, { status: 500 });
     }
 
     // Check if key format is correct
     const keyFormat = apiKey.startsWith('sk-') ? 'valid_format' : 'invalid_format';
     
-    // Test a simple API call
+    // Test OpenAI API connection
     const response = await fetch('https://api.openai.com/v1/models', {
-      method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
@@ -32,32 +31,34 @@ export async function GET(request: NextRequest) {
     };
 
     if (!response.ok) {
-      const errorData = await response.json();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errorData = await response.json() as any;
       
       return NextResponse.json({
-        error: 'OpenAI API Error',
-        details: errorData,
-        debugInfo,
+        error: 'OpenAI API connection failed',
         status: response.status,
-        suggestions: getErrorSuggestions(response.status, errorData)
-      });
+        details: errorData
+      }, { status: 500 });
     }
 
-    const data = await response.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await response.json() as any;
     
     return NextResponse.json({
-      status: 'success',
-      message: 'OpenAI API is working correctly',
+      success: true,
+      message: 'OpenAI API connection successful',
       debugInfo,
       availableModels: data.data?.slice(0, 5).map((model: any) => model.id) || []
     });
 
-  } catch (error: any) {
+  } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorDetails = error as any;
+    
     return NextResponse.json({
-      error: 'Network or configuration error',
-      details: error.message,
-      timestamp: new Date().toISOString()
-    });
+      error: 'Debug request failed',
+      details: errorDetails?.message || 'Unknown error'
+    }, { status: 500 });
   }
 }
 

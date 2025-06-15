@@ -1,48 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-import { usageService } from '@/lib/usage-service';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import OpenAI from 'openai';
+import { usageService } from '@/lib/usage-service';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Helper function to generate AI insight
-async function generateAIInsight(merchant: string, category: string, amount: number, mood?: string): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) {
-    // Simple fallback insights
-    const insights = [
-      `This ${category.toLowerCase()} purchase at ${merchant} reflects your spending pattern.`,
-      `A $${amount} expense in ${category.toLowerCase()} - consider if this aligns with your budget goals.`,
-      `Shopping at ${merchant} for $${amount} - track these purchases to understand your habits.`
-    ];
-    return insights[Math.floor(Math.random() * insights.length)];
-  }
-
-  try {
-    const moodContext = mood ? `Mood: ${mood}.` : '';
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "user",
-          content: `Based on the following transaction${mood ? ' and mood' : ''}, write a short reflection-style insight (max 2 sentences) that helps the user understand their spending behavior: 
-          Merchant: ${merchant}, Category: ${category}, Amount: $${amount}. ${moodContext}
-          
-          Focus on behavioral patterns, budget awareness, or emotional spending if mood is provided. Be supportive and constructive.`
-        }
-      ],
-      max_tokens: 100,
-      temperature: 0.7,
-    });
-
-    return response.choices[0]?.message?.content?.trim() || 'Consider tracking this purchase to better understand your spending patterns.';
-  } catch (error) {
-    console.error('Error generating AI insight:', error);
-    return 'Consider tracking this purchase to better understand your spending patterns.';
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
