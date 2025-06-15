@@ -4,17 +4,31 @@ import { cookies } from 'next/headers';
 import OpenAI from 'openai';
 import { usageService } from '@/lib/usage-service';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI conditionally
+let openai: OpenAI | null = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user from session
+    // Create Supabase client inside the function to avoid build-time issues
     const cookieStore = await cookies();
+    
+    // Check if environment variables are available
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase environment variables not configured');
+      return NextResponse.json({ 
+        error: 'Server configuration error - Supabase not configured',
+        fallback: true
+      }, { status: 500 });
+    }
+
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         cookies: {
           get(name: string) {
@@ -48,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if OpenAI API key is configured
-    if (!process.env.OPENAI_API_KEY) {
+    if (!openai || !process.env.OPENAI_API_KEY) {
       console.warn('OpenAI API key not configured, using demo data');
       
       // Return realistic demo data

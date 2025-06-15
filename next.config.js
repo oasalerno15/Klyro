@@ -84,7 +84,6 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
-  swcMinify: true,
   compress: true,
   poweredByHeader: false,
   env: {
