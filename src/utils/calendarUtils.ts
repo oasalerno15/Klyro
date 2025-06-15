@@ -6,33 +6,34 @@ export interface CalendarData {
   step_statuses: Record<string, boolean>;
 }
 
-export async function saveCalendarData(userId: string, data: CalendarData) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function saveCalendarData(userId: string, calendarData: any) {
+  const supabase = createClient();
+  
   try {
-    const supabase = createClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('calendar_data')
       .upsert({
         user_id: userId,
-        calendar_form: data.calendar_form,
-        task_statuses: data.task_statuses,
-        step_statuses: data.step_statuses,
+        calendar_data: calendarData,
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'user_id'
-      });
+      })
+      .select();
 
     if (error) {
-      if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-        console.warn('Calendar table does not exist. Please run the SQL script in supabase_calendar_table.sql');
-        return false;
-      }
       console.error('Error saving calendar data:', error);
-      return false;
+      throw error;
     }
-    return true;
+
+    return data;
   } catch (error) {
-    console.error('Error saving calendar data:', error);
-    return false;
+    console.error('Error in saveCalendarData:', error);
+    if (error instanceof Error && error.message.includes('relation "calendar_data" does not exist')) {
+      console.warn('Calendar table does not exist. Please run the SQL script in supabase_calendar_table.sql');
+    }
+    throw error;
   }
 }
 
