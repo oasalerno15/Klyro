@@ -9,15 +9,14 @@ import { format } from 'date-fns';
 import FinanceSection from '@/components/FinanceSection';
 import SpendingChart from '@/components/PlaceholderChart';
 import InsightsSection from '@/components/InsightsSection';
-import Tooltip from '@/components/Tooltip';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import RoadmapSection from '@/components/RoadmapSection';
-import { FaPaypal, FaBitcoin, FaApple, FaGoogle, FaAmazon, FaFacebook, FaUber, FaShoppingBag, FaReceipt, FaMicrosoft, FaSpotify } from 'react-icons/fa';
+import { FaPaypal, FaBitcoin, FaApple, FaGoogle, FaAmazon, FaFacebook, FaUber, FaShoppingBag, FaGasPump, FaCoffee, FaUtensils, FaFilm, FaGamepad, FaBook, FaPlane, FaCar, FaHome, FaShoppingCart, FaMedkit, FaGraduationCap, FaDumbbell, FaPaw, FaGift, FaMusic, FaTshirt, FaLaptop, FaMobile, FaCamera, FaHeadphones, FaWifi, FaLightbulb, FaWrench, FaPaintBrush, FaLeaf, FaRecycle, FaBaby, FaRing, FaUmbrella, FaSuitcase, FaMapMarkedAlt, FaHotel, FaTicketAlt, FaBus, FaTrain, FaTaxi, FaShip, FaMotorcycle, FaBicycle, FaWalking, FaRunning, FaSwimmer, FaSkiing, FaFutbol, FaBasketballBall, FaVolleyballBall, FaTableTennis, FaBowlingBall, FaChess, FaDice, FaPuzzlePiece, FaRobot, FaRocket, FaSatellite, FaMicroscope, FaFlask, FaAtom, FaDna, FaVirus, FaPills, FaStethoscope, FaSyringe, FaBandAid, FaThermometerHalf, FaWeight, FaRuler, FaClock, FaCalendarAlt, FaCalendarCheck, FaCalendarPlus, FaCalendarMinus, FaCalendarTimes, FaStopwatch, FaHourglass, FaBell, FaVolumeUp, FaVolumeDown, FaVolumeMute, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaPhoneSlash, FaVideo, FaVideoSlash, FaDesktop, FaTabletAlt, FaKeyboard, FaMouse, FaPrint, FaFax, FaProjectDiagram, FaNetworkWired, FaServer, FaDatabase, FaCloud, FaCloudUploadAlt, FaCloudDownloadAlt } from 'react-icons/fa';
 import { SiEthereum, SiTether, SiTesla, SiNetflix, SiStarbucks, SiWalmart, SiTarget, SiMcdonalds, SiCocacola, SiVisa, SiMastercard } from 'react-icons/si';
-import React from 'react';
 import ReceiptUpload from '@/components/ReceiptUpload';
-import DatabaseSetupNotice from '@/components/DatabaseSetupNotice';
-import ProfileModal from '@/components/ProfileModal';
+import TransactionList from '@/components/TransactionList';
+import StockPrice from '@/components/StockPrice';
+import { generateInsight } from '@/utils/aiUtils';
+import { toast } from 'sonner';
 
 // Placeholder data - in real app would come from API
 const analyticsData = {

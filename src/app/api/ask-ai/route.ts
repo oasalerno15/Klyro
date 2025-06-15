@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 import { usageService } from '@/lib/usage-service';
 
 // Utility function to add delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+interface Transaction {
+  name: string;
+  amount: number;
+  date: string;
+  category: string;
+  need_vs_want?: string | null;
+  mood_at_purchase?: string | null;
+}
+
 // Retry function with exponential backoff
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function retryOpenAIRequest(apiKey: string, requestBody: any, maxRetries = 3) {
+async function retryOpenAIRequest(apiKey: string, requestBody: Record<string, unknown>, maxRetries = 3) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -29,9 +36,10 @@ async function retryOpenAIRequest(apiKey: string, requestBody: any, maxRetries =
 
       // If it's a quota error and we have retries left, wait and retry
       if (response.status === 429 && attempt < maxRetries - 1) {
-        const errorData = await response.json();
-        const isQuotaError = errorData.error?.type === 'insufficient_quota' || 
-                           errorData.error?.message?.includes('quota');
+        const errorData = await response.json() as Record<string, unknown>;
+        const errorObj = errorData.error as Record<string, unknown> | undefined;
+        const isQuotaError = errorObj?.type === 'insufficient_quota' || 
+                           (typeof errorObj?.message === 'string' && errorObj.message.includes('quota'));
         
         if (isQuotaError) {
           console.log(`Quota error on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt) * 1000}ms...`);
@@ -105,22 +113,19 @@ export async function POST(request: Request) {
       
       if (!error && transactions && transactions.length > 0) {
         const todayStr = new Date().toISOString().split('T')[0];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const todayTransactions = transactions.filter((t: any) => t.date === todayStr);
-        const recentTransactions = transactions.slice(0, 10);
+        const todayTransactions = (transactions as Transaction[]).filter((t: Transaction) => t.date === todayStr);
+        const recentTransactions = transactions.slice(0, 10) as Transaction[];
         
         transactionContext = `
 USER'S RECENT TRANSACTION DATA:
 
 Today's Transactions (${todayStr}):
 ${todayTransactions.length > 0 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ? todayTransactions.map((t: any) => `- ${t.name}: $${Math.abs(t.amount)} (${t.need_vs_want || 'unclassified'}) ${t.mood_at_purchase ? `[Mood: ${t.mood_at_purchase}]` : ''}`).join('\n')
+  ? todayTransactions.map((t: Transaction) => `- ${t.name}: $${Math.abs(t.amount)} (${t.need_vs_want || 'unclassified'}) ${t.mood_at_purchase ? `[Mood: ${t.mood_at_purchase}]` : ''}`).join('\n')
   : 'No transactions today'}
 
 Recent Transactions (last 10):
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-${recentTransactions.map((t: any) => `- ${t.date}: ${t.name} - $${Math.abs(t.amount)} (${t.need_vs_want || 'unclassified'}) ${t.mood_at_purchase ? `[Mood: ${t.mood_at_purchase}]` : ''}`).join('\n')}
+${recentTransactions.map((t: Transaction) => `- ${t.date}: ${t.name} - $${Math.abs(t.amount)} (${t.need_vs_want || 'unclassified'}) ${t.mood_at_purchase ? `[Mood: ${t.mood_at_purchase}]` : ''}`).join('\n')}
 
 Total transactions available: ${transactions.length}
 `;
@@ -155,8 +160,7 @@ Total transactions available: ${transactions.length}
     const response = await retryOpenAIRequest(apiKey, requestBody);
 
     if (!response.ok) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = await response.json().catch(() => ({})) as Record<string, unknown>;
       
       // Handle specific error cases
       if (response.status === 403 && errorData.error === 'AI chat limit reached') {
@@ -183,13 +187,13 @@ Total transactions available: ${transactions.length}
       // For other errors, throw to be handled by the catch block
       throw new Error(
         `API request failed with status ${response.status}: ${
-          errorData.error || 'Unknown error'
+          (errorData.error as string) || 'Unknown error'
         }`
       );
     }
 
-    const data = await response.json();
-    if (!data || typeof data.result === 'undefined') {
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    if (!data || !data.choices || !data.choices[0]?.message?.content) {
       console.error('Invalid API response format:', data);
       return NextResponse.json({ error: 'Invalid response format' }, { status: 500 });
     }
@@ -197,19 +201,21 @@ Total transactions available: ${transactions.length}
     // Increment usage after successful AI chat
     await usageService.incrementUsage(user.id, 'ai_chat');
     
-    return NextResponse.json({ result: data.choices[0]?.message?.content || "I couldn't generate a response. Please try again." });
-  } catch (error: any) {
+    return NextResponse.json({ result: data.choices[0].message.content || "I couldn't generate a response. Please try again." });
+  } catch (error: unknown) {
     console.error('Error generating insight:', error);
     
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     // Handle specific error types
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return NextResponse.json(
         { error: 'Request timed out' },
         { status: 408 }
       );
     }
     
-    if (error.message && error.message.includes('NetworkError')) {
+    if (errorMessage.includes('NetworkError')) {
       return NextResponse.json(
         { error: 'Network error occurred' },
         { status: 503 }
@@ -218,15 +224,14 @@ Total transactions available: ${transactions.length}
 
     const debugInfo = {
       status: 500,
-      message: error.message || 'Unknown error',
+      message: errorMessage,
       timestamp: new Date().toISOString(),
       suggestions: ['Please try again later', 'Contact support if the problem persists']
     };
     
     return NextResponse.json({
-      error: error.message || 'Internal server error',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      debug: debugInfo as any
+      error: errorMessage || 'Internal server error',
+      debug: debugInfo
     }, { status: 500 });
   }
 } 

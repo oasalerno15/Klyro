@@ -3,22 +3,54 @@ export interface Transaction {
   user_id: string;
   name: string;
   amount: number;
-  category: string[];
   date: string;
-  source: string;
-  confidence?: number;
-  items?: any;
-  file_name?: string;
+  category: string;
+  need_vs_want?: 'need' | 'want' | null;
+  mood_at_purchase?: string | null;
+  ai_insight?: string | null;
   created_at: string;
   updated_at: string;
+  receipt_data?: ReceiptData | null;
 }
 
-export interface ReceiptTransaction {
+export interface ReceiptData {
   merchant: string;
-  amount: number;
-  category: string;
-  date: string;
+  items: ReceiptItem[];
   confidence: number;
-  items?: any[];
-  fileName?: string;
+  raw_text?: string;
+}
+
+export interface ReceiptItem {
+  name: string;
+  price: number;
+  quantity?: number;
+}
+
+export interface TransactionFormData {
+  name: string;
+  amount: number;
+  date: string;
+  category: string;
+  need_vs_want?: 'need' | 'want';
+  mood_at_purchase?: string;
+}
+
+export interface TransactionFilters {
+  category?: string;
+  need_vs_want?: 'need' | 'want';
+  date_from?: string;
+  date_to?: string;
+  mood?: string;
+}
+
+export interface TransactionSummary {
+  total_amount: number;
+  transaction_count: number;
+  average_amount: number;
+  categories: Record<string, number>;
+  needs_vs_wants: {
+    needs: number;
+    wants: number;
+    unclassified: number;
+  };
 } 

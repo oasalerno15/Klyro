@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     
@@ -31,29 +31,27 @@ export async function GET(request: NextRequest) {
     };
 
     if (!response.ok) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const errorData = await response.json() as any;
+      const errorData = await response.json() as Record<string, unknown>;
       
       return NextResponse.json({
         error: 'OpenAI API connection failed',
         status: response.status,
-        details: errorData
+        details: errorData,
+        suggestions: getErrorSuggestions(response.status, errorData)
       }, { status: 500 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await response.json() as any;
+    const data = await response.json() as { data?: Array<{ id: string }> };
     
     return NextResponse.json({
       success: true,
       message: 'OpenAI API connection successful',
       debugInfo,
-      availableModels: data.data?.slice(0, 5).map((model: any) => model.id) || []
+      availableModels: data.data?.slice(0, 5).map((model) => model.id) || []
     });
 
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const errorDetails = error as any;
+    const errorDetails = error as Error;
     
     return NextResponse.json({
       error: 'Debug request failed',
@@ -62,7 +60,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function getErrorSuggestions(status: number, errorData: any) {
+function getErrorSuggestions(status: number, errorData: Record<string, unknown>): string[] {
   const suggestions = [];
 
   switch (status) {
@@ -73,7 +71,7 @@ function getErrorSuggestions(status: number, errorData: any) {
       break;
       
     case 429:
-      const errorMessage = errorData.error?.message || '';
+      const errorMessage = (errorData.error as Record<string, unknown>)?.message as string || '';
       
       if (errorMessage.includes('quota')) {
         suggestions.push('🚨 QUOTA EXCEEDED: Your OpenAI account has reached its usage limit');

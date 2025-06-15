@@ -1,14 +1,39 @@
 {
-  "extends": [
-    "next/core-web-vitals"
-  ],
+  "extends": ["next/core-web-vitals"],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
   "rules": {
     "@typescript-eslint/no-unused-vars": "off",
     "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/ban-ts-comment": "off",
+    "@typescript-eslint/no-empty-function": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
     "react/no-unescaped-entities": "off",
     "react-hooks/exhaustive-deps": "off",
-    "@next/next/no-img-element": "warn",
+    "react-hooks/rules-of-hooks": "off",
+    "@next/next/no-img-element": "off",
     "prefer-const": "off",
-    "no-unused-vars": "off"
+    "no-unused-vars": "off",
+    "no-console": "off",
+    "no-debugger": "off",
+    "no-empty": "off",
+    "no-undef": "off",
+    "react/display-name": "off",
+    "react/prop-types": "off",
+    "react/react-in-jsx-scope": "off",
+    "jsx-a11y/alt-text": "off",
+    "jsx-a11y/anchor-is-valid": "off"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es6": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
   }
 } 

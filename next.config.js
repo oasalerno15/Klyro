@@ -2,11 +2,11 @@ const { withSentryConfig } = require('@sentry/nextjs');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Disable ESLint during builds - we'll fix warnings later
+  // Completely disable ESLint during builds
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Disable TypeScript build errors - treat as warnings
+  // Completely disable TypeScript build errors
   typescript: {
     ignoreBuildErrors: true,
   },

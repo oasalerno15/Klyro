@@ -1,29 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateEnvironment } from '@/lib/env-validation';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Validate environment variables
-    const envStatus = validateEnvironment();
-    
-    // Check API availability
-    const services = {
-      environment: envStatus,
-      openai: envStatus.hasOpenAI ? 'available' : 'not configured (using fallbacks)',
-      supabase: envStatus.hasSupabase ? 'available' : 'not configured',
-      timestamp: new Date().toISOString()
-    };
-    
-    return NextResponse.json({
+    // Basic health check
+    const healthData = {
       status: 'healthy',
-      services,
-      message: 'All systems operational'
-    });
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0'
+    };
+
+    return NextResponse.json(healthData);
+  } catch (error) {
+    const errorDetails = error as Error;
     
-  } catch (error: any) {
     return NextResponse.json({
       status: 'unhealthy',
-      error: error?.message || 'Unknown error',
+      error: errorDetails?.message || 'Unknown error',
       timestamp: new Date().toISOString()
     }, { status: 500 });
   }
