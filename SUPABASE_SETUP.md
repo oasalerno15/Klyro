@@ -66,15 +66,16 @@ OPENAI_API_KEY=your_openai_api_key_here
 3. Add your Google OAuth credentials:
    - Client ID: (from Google Cloud Console)
    - Client Secret: (from Google Cloud Console)
-4. Site URL: `http://localhost:3000` (for development)
-5. Redirect URLs: `https://xitslocugrjkgcidqkor.supabase.co/auth/v1/callback`
+4. Site URL: `https://kly-ro.xyz` (for production) or `http://localhost:3000` (for development)
+5. Redirect URLs: `https://kly-ro.xyz/auth/callback` (for production) or `https://kly-ro.xyz/dashboard` (for production) or `http://localhost:3000` (for development)
 
 #### In Google Cloud Console:
 1. Go to https://console.cloud.google.com/
 2. Enable Google+ API (or Google Identity API)
 3. Create OAuth 2.0 credentials
 4. Add authorized redirect URIs:
-   - `https://xitslocugrjkgcidqkor.supabase.co/auth/v1/callback`
+   - `https://kly-ro.xyz/auth/callback` (for production)
+   - `https://kly-ro.xyz/dashboard` (for production)
    - `http://localhost:3000` (for development)
 5. Add authorized JavaScript origins:
    - `http://localhost:3000`

@@ -38,7 +38,7 @@ async function testConnection() {
     const { data: authData, error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'http://localhost:3000/dashboard'
+        redirectTo: 'https://kly-ro.xyz/dashboard'
       }
     });
 

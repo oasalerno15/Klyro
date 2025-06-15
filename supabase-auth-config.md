@@ -43,8 +43,8 @@ Go to Supabase Dashboard → Authentication → Settings → URL Configuration
 **Add your production URLs:**
 - **Site URL**: `https://yourdomain.com`
 - **Redirect URLs**: 
-  - `https://yourdomain.com/auth/callback`
-  - `https://yourdomain.com/dashboard`
+  - `https://kly-ro.xyz/auth/callback` (for production)
+  - `https://kly-ro.xyz/dashboard` (for production)
   - `http://localhost:3000/auth/callback` (for development)
   - `http://localhost:3000/dashboard` (for development)
 
