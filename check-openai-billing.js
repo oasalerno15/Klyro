@@ -33,7 +33,7 @@ const apiKey = process.env.OPENAI_API_KEY;
 if (apiKey) {
   console.log(`\n✅ API Key is set (${apiKey.substring(0, 7)}...)`);
   console.log('🔄 Testing API connection...');
-  console.log('Visit: http://localhost:3000/api/debug-openai');
+  console.log('Visit: https://kly-ro.xyz/api/debug-openai');
 } else {
   console.log('\n❌ No OPENAI_API_KEY found in environment');
 } 

@@ -36,15 +36,29 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    !request.nextUrl.pathname.startsWith('/api') &&
-    request.nextUrl.pathname !== '/'
-  ) {
+  // Allow access to public routes
+  const publicRoutes = ['/', '/login', '/signup', '/debug-auth']
+  const isPublicRoute = publicRoutes.includes(request.nextUrl.pathname)
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api')
+  const isStaticFile = request.nextUrl.pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|css|js)$/)
+
+  // Don't redirect for public routes, auth routes, API routes, or static files
+  if (isPublicRoute || isAuthRoute || isApiRoute || isStaticFile) {
+    return supabaseResponse
+  }
+
+  // Redirect unauthenticated users to landing page for protected routes
+  if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
+
+  // If user is authenticated and trying to access landing page, redirect to dashboard
+  if (user && request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 

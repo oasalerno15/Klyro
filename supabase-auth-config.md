@@ -41,7 +41,7 @@ Go to Supabase Dashboard → Authentication → Settings → Email Templates
 Go to Supabase Dashboard → Authentication → Settings → URL Configuration
 
 **Add your production URLs:**
-- **Site URL**: `https://yourdomain.com`
+- **Site URL**: `https://kly-ro.xyz`
 - **Redirect URLs**: 
   - `https://kly-ro.xyz/auth/callback` (for production)
   - `https://kly-ro.xyz/dashboard` (for production)

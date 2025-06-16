@@ -58,28 +58,16 @@ OPENAI_API_KEY=your_openai_api_key_here
 4. Upload a receipt image
 5. Verify data appears in Supabase tables and dashboard
 
-### 4. Configure Google OAuth (Optional)
+### 4. URL Configuration (CRITICAL for Production)
+Go to Supabase Dashboard → Authentication → Settings → URL Configuration
 
-#### In Supabase Dashboard:
-1. Go to Authentication > Providers
-2. Enable Google provider
-3. Add your Google OAuth credentials:
-   - Client ID: (from Google Cloud Console)
-   - Client Secret: (from Google Cloud Console)
-4. Site URL: `https://kly-ro.xyz` (for production) or `http://localhost:3000` (for development)
-5. Redirect URLs: `https://kly-ro.xyz/auth/callback` (for production) or `https://kly-ro.xyz/dashboard` (for production) or `http://localhost:3000` (for development)
-
-#### In Google Cloud Console:
-1. Go to https://console.cloud.google.com/
-2. Enable Google+ API (or Google Identity API)
-3. Create OAuth 2.0 credentials
-4. Add authorized redirect URIs:
-   - `https://kly-ro.xyz/auth/callback` (for production)
-   - `https://kly-ro.xyz/dashboard` (for production)
-   - `http://localhost:3000` (for development)
-5. Add authorized JavaScript origins:
-   - `http://localhost:3000`
-   - `https://your-production-domain.com` (when you deploy)
+**Add your production URLs:**
+- **Site URL**: `https://kly-ro.xyz`
+- **Redirect URLs**: 
+  - `https://kly-ro.xyz/auth/callback` (for production)
+  - `https://kly-ro.xyz/dashboard` (for production)
+  - `http://localhost:3000/auth/callback` (for development)
+  - `http://localhost:3000/dashboard` (for development)
 
 ## Database Schema
 
