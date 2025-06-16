@@ -52,23 +52,8 @@ export async function GET(request: NextRequest) {
         redirectingTo: `${origin}/dashboard`
       })
       
-      // Add a small delay to ensure session is properly set
-      const response = NextResponse.redirect(`${origin}/dashboard`)
-      
-      // Ensure cookies are properly set in the response
-      const sessionCookies = cookieStore.getAll()
-      sessionCookies.forEach(cookie => {
-        if (cookie.name.includes('supabase')) {
-          response.cookies.set(cookie.name, cookie.value, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'lax',
-            path: '/'
-          })
-        }
-      })
-      
-      return response
+      // Simple redirect without complex cookie handling
+      return NextResponse.redirect(`${origin}/dashboard`)
     } catch (error) {
       console.error('Unexpected error in auth callback:', error)
       return NextResponse.redirect(`${origin}/?error=auth_error&message=${encodeURIComponent('Unexpected error')}`)
