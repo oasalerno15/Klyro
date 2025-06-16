@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-import { X, Plus, Map, MoreVertical } from 'lucide-react';
+import { X, Plus, Map, MoreVertical, Calendar } from 'lucide-react';
 import { generateRoadmapAnalysis } from '../utils/aiUtils';
 import { createBrowserClient } from '@supabase/ssr';
 
@@ -870,110 +870,34 @@ export default function RoadmapSection({ user: passedUser }: RoadmapSectionProps
       {/* Initial State: Start Card (hide if visual roadmap is shown or loading) */}
       {!isLoading && !showVisualRoadmap && step === null && (
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          key="initial"
+          initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-          className="flex flex-col items-center justify-center w-full min-h-[60vh] px-4 bg-white"
+          exit={{ opacity: 0, y: -40 }}
+          className="bg-gradient-to-br from-green-50 to-blue-50 rounded-3xl shadow-lg p-8 text-center space-y-6 max-w-2xl mx-auto"
         >
-          {/* Elegant Fully Connected Web Animation */}
-          <motion.svg
-            width="200" height="120" viewBox="0 0 200 120" fill="none"
-            className="mb-7"
-          >
-            {/* Define 8 points */}
-            {(() => {
-              const points = [
-                [30, 100], [60, 30], [100, 60], [150, 25],
-                [180, 80], [140, 110], [90, 100], [50, 70]
-              ];
-              // Generate all unique pairs for a complete web
-              const lines = [];
-              let delay = 0.1;
-              for (let i = 0; i < points.length; i++) {
-                for (let j = i + 1; j < points.length; j++) {
-                  lines.push(
-                    <motion.line
-                      key={`line-${i}-${j}`}
-                      x1={points[i][0]} y1={points[i][1]}
-                      x2={points[j][0]} y2={points[j][1]}
-                      stroke="#14532d"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ duration: 0.5, delay: delay }}
-                    />
-                  );
-                  delay += 0.04;
-                }
-              }
-              return lines;
-            })()}
-            {/* Dots: gently pulse */}
-            <motion.circle cx="30" cy="100" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0 }} />
-            <motion.circle cx="60" cy="30" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }} />
-            <motion.circle cx="100" cy="60" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }} />
-            <motion.circle cx="150" cy="25" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }} />
-            <motion.circle cx="180" cy="80" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }} />
-            <motion.circle cx="140" cy="110" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 1.0 }} />
-            <motion.circle cx="90" cy="100" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }} />
-            <motion.circle cx="50" cy="70" r="3.2" fill="#14532d"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.8, 1, 0.8] }} transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 1.4 }} />
-          </motion.svg>
-          {/* Headline */}
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-black text-center" style={{ letterSpacing: '-0.01em' }}>
-            Let's build your financial calendar.
-          </h2>
-          {/* Description */}
-          <p className="text-base sm:text-lg text-gray-700 mt-1 mb-8 text-center max-w-xl font-medium">
-            Your personalized calendar for tracking goals, habits, and financial milestones.
-          </p>
+          <div className="bg-white/60 rounded-full p-6 inline-flex shadow-md">
+            <Calendar className="w-12 h-12 text-emerald-600 drop-shadow-sm" />
+          </div>
           
-          {/* Debug section */}
-          {user && (
-            <div className="mb-4 text-sm text-gray-600 text-center">
-              Logged in as: {user.email} (ID: {user.id?.slice(0, 8)}...)
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Let's build your financial calendar.</h2>
+            <p className="text-gray-600 leading-relaxed">
+              Your personalized calendar for tracking goals, habits, and financial milestones.
+            </p>
+            <div className="mt-4 text-xs text-gray-500">
+              Logged in as: {user?.email || 'Anonymous'} (ID: {user?.id?.slice(0, 8) || 'Unknown'}...)
             </div>
-          )}
+          </div>
           
-          {/* Start Button and Debug Button */}
-          <div className="flex gap-4">
+          <div className="flex justify-center">
             <motion.button
-              whileHover={{ scale: 1.04, boxShadow: '0 0 0 4px #14532d22' }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setStep(0)}
-              className="bg-[#14532d] hover:bg-[#166534] text-white rounded-full px-8 py-3 shadow-md transition-all font-semibold text-base focus:outline-none focus:ring-2 focus:ring-[#14532d]"
-              aria-label="Start Calendar"
-              style={{ boxShadow: '0 2px 16px 0 #14532d11' }}
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-full px-8 py-4 shadow-lg transition-all font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               Start Calendar
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={async () => {
-                console.log('🧪 Testing Supabase...');
-                try {
-                  const response = await fetch('/api/test-supabase');
-                  const result = await response.json();
-                  console.log('🧪 Test result:', result);
-                  alert(result.success ? 'Supabase test passed!' : `Test failed: ${result.error}`);
-                } catch (error) {
-                  console.error('🧪 Test error:', error);
-                  alert('Test failed - check console');
-                }
-              }}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full px-6 py-3 shadow-md transition-all font-semibold text-base focus:outline-none focus:ring-2 focus:ring-gray-400"
-            >
-              Test DB
             </motion.button>
           </div>
         </motion.div>
