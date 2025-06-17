@@ -124,7 +124,7 @@ function generateCalendarForProfile(profile: {
   for (let i = 0; i < 7; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() + i);
-    
+      
     // Select activities based on profile
     const dailyActivities = baseActivities
       .filter(() => Math.random() > 0.3) // Random selection
@@ -160,7 +160,7 @@ function generateCalendarForProfile(profile: {
       'Focus on building consistent habits'
     ]
   };
-}
+    }
 
 interface CalendarData {
   weekOf: string;

@@ -27,7 +27,7 @@ try {
 export async function POST(request: NextRequest) {
   // Add CORS headers
   const headers = new Headers({
-    'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' ? 'https://kly-ro.xyz' : 'http://localhost:3000',
+    'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' ? 'https://www.kly-ro.xyz' : 'http://localhost:3000',
     'Access-Control-Allow-Methods': 'POST',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   });

@@ -10,7 +10,7 @@ export async function GET() {
       environment: process.env.NODE_ENV || 'development',
       version: '1.0.0'
     };
-
+    
     return NextResponse.json(healthData);
   } catch (error) {
     const errorDetails = error as Error;

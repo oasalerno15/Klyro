@@ -8,8 +8,8 @@ import { usageService } from '@/lib/usage-service';
 let openai: OpenAI | null = null;
 if (process.env.OPENAI_API_KEY) {
   openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+  apiKey: process.env.OPENAI_API_KEY,
+});
 }
 
 export async function POST(request: NextRequest) {

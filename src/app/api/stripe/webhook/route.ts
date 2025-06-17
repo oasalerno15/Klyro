@@ -31,19 +31,19 @@ export async function POST(request: NextRequest) {
 
   let event: StripeEvent;
 
-  try {
+    try {
     event = stripe.webhooks.constructEvent(body, sig, endpointSecret) as StripeEvent;
   } catch (err) {
     const error = err as Error;
     console.log(`Webhook signature verification failed.`, error.message);
     return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 });
-  }
+    }
 
   const supabase = await createClient();
 
-  // Handle the event
-  switch (event.type) {
-    case 'checkout.session.completed':
+    // Handle the event
+    switch (event.type) {
+      case 'checkout.session.completed':
       const session = event.data.object as CheckoutSession;
       
       // Update user subscription status
@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
           console.error('Error updating subscription:', error);
         }
       }
-      break;
+        break;
 
-    case 'customer.subscription.updated':
+      case 'customer.subscription.updated':
       const subscription = event.data.object as Record<string, unknown>;
       
       // Update subscription status
@@ -79,9 +79,9 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.error('Error updating subscription status:', updateError);
       }
-      break;
+        break;
 
-    case 'customer.subscription.deleted':
+      case 'customer.subscription.deleted':
       const deletedSubscription = event.data.object as Record<string, unknown>;
       
       // Mark subscription as cancelled
@@ -96,27 +96,27 @@ export async function POST(request: NextRequest) {
       if (deleteError) {
         console.error('Error cancelling subscription:', deleteError);
       }
-      break;
+        break;
 
-    case 'invoice.payment_succeeded':
+      case 'invoice.payment_succeeded':
       const invoice = event.data.object as Record<string, unknown>;
       
       // Log successful payment
       console.log('Payment succeeded for invoice:', invoice.id);
-      break;
+        break;
 
-    case 'invoice.payment_failed':
+      case 'invoice.payment_failed':
       const failedInvoice = event.data.object as Record<string, unknown>;
       
       // Handle failed payment
       console.log('Payment failed for invoice:', failedInvoice.id);
-      break;
+        break;
 
-    default:
+      default:
       console.log(`Unhandled event type ${event.type}`);
-  }
+    }
 
-  return NextResponse.json({ received: true });
+    return NextResponse.json({ received: true });
 }
 
 async function handleCheckoutCompleted(session: any) {

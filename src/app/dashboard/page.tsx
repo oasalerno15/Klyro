@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { useUsage } from '@/hooks/useUsage';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -17,6 +18,7 @@ import TransactionList from '@/components/TransactionList';
 import StockPrice from '@/components/StockPrice';
 import DatabaseSetupNotice from '@/components/DatabaseSetupNotice';
 import ProfileModal from '@/components/ProfileModal';
+import UpgradePrompt from '@/components/UpgradePrompt';
 import { generateInsight } from '@/utils/aiUtils';
 import { toast } from 'sonner';
 
@@ -279,6 +281,7 @@ function getMerchantLogo(name: string) {
 export default function Dashboard() {
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
+  const { usageData, canUploadReceipt, getRemainingText } = useUsage();
   const [darkMode, setDarkMode] = useState(false);
   const [currentWelcomeIndex, setCurrentWelcomeIndex] = useState(0);
   const [welcomeMessage, setWelcomeMessage] = useState(welcomeMessages[0]);
@@ -295,6 +298,8 @@ export default function Dashboard() {
   const [dataLoggingSuccess, setDataLoggingSuccess] = useState(false);
   const [spendingEntryCount, setSpendingEntryCount] = useState<number | null>(null);
   const [showReceiptUpload, setShowReceiptUpload] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string>('');
   const [tablesExist, setTablesExist] = useState(true);
   const [isTransactionOverviewExpanded, setIsTransactionOverviewExpanded] = useState(false);
   const [archiveFilter, setArchiveFilter] = useState('all'); // 'all' or 'archived'
@@ -1319,14 +1324,31 @@ export default function Dashboard() {
                 <h2 className="text-lg font-semibold">Transactions</h2>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setShowReceiptUpload(true)}
-                    className="inline-flex items-center px-3 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
+                    onClick={() => {
+                      if (!canUploadReceipt()) {
+                        setUpgradeReason('receipt');
+                        setShowUpgradePrompt(true);
+                      } else {
+                        setShowReceiptUpload(true);
+                      }
+                    }}
+                    className={`inline-flex items-center px-3 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
+                      canUploadReceipt() 
+                        ? 'bg-gray-900 hover:bg-gray-800' 
+                        : 'bg-gray-400 cursor-not-allowed'
+                    }`}
+                    disabled={!canUploadReceipt()}
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     Upload Receipt
+                    {!canUploadReceipt() && (
+                      <span className="ml-2 text-xs bg-red-500 text-white px-2 py-1 rounded">
+                        Limit Reached
+                      </span>
+                    )}
                   </button>
                   <input type="text" placeholder="Search transactions..." className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
                   <button className="ml-2 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-300 text-gray-600 text-sm flex items-center">
@@ -1869,6 +1891,19 @@ export default function Dashboard() {
             user={user}
             darkMode={darkMode}
             onClose={() => setShowProfile(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Upgrade Prompt Modal */}
+      <AnimatePresence>
+        {showUpgradePrompt && (
+          <UpgradePrompt
+            isOpen={showUpgradePrompt}
+            onClose={() => setShowUpgradePrompt(false)}
+            currentTier={usageData?.subscription?.subscription_tier || 'free'}
+            reason={upgradeReason}
+            usageData={usageData}
           />
         )}
       </AnimatePresence>

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaPlus, FaCamera, FaUpload, FaSpinner, FaCheck, FaTimes, FaCrown } from 'react-icons/fa';
+import { FaPlus, FaCamera, FaUpload, FaSpinner, FaCheck, FaTimes } from 'react-icons/fa';
 
 interface ReceiptData {
   id: string;
@@ -23,10 +23,10 @@ interface ReceiptData {
 }
 
 interface ReceiptUploadProps {
-  onReceiptAnalyzed: (data: ReceiptData) => void;
+  onReceiptAnalyzed: (receipt: ReceiptData) => void;
   darkMode?: boolean;
-  onClose: () => void;
-  isOpen: boolean;
+  onClose?: () => void;
+  isOpen?: boolean;
 }
 
 export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onClose, isOpen }: ReceiptUploadProps) {
@@ -37,7 +37,6 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // New states for pre-upload questions
@@ -152,30 +151,7 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
         console.error('Error analyzing receipt:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         
-        // Check if error response contains upgrade information
-        if (error instanceof Response && error.status === 403) {
-          try {
-            const errorData = await error.json();
-            if (errorData.upgradeRequired) {
-              setShowUpgradePrompt(true);
-              setError(null);
-              setIsAnalyzing(false);
-              return;
-            }
-          } catch (e) {
-            // Fallback to original error handling
-          }
-        }
-        
-        // Check for limit reached in error message
-        if (errorMessage.includes('limit reached') || errorMessage.includes('upgradeRequired')) {
-          setShowUpgradePrompt(true);
-          setError(null);
-          setIsAnalyzing(false);
-          return;
-        }
-        
-        // Provide more helpful error messages for other errors
+        // Provide more helpful error messages
         if (errorMessage.includes('API Error: 500')) {
           setError('Server error occurred. Please try again in a moment, or contact support if the issue persists.');
         } else if (errorMessage.includes('API Error: 400')) {
@@ -347,39 +323,6 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-sm text-red-600">{error}</p>
-                </div>
-              )}
-
-              {/* Upgrade Prompt */}
-              {showUpgradePrompt && (
-                <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <FaCrown className="text-purple-600 mt-1" size={20} />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-semibold text-purple-900 mb-1">
-                        Receipt Upload Limit Reached
-                      </h4>
-                      <p className="text-sm text-purple-700 mb-3">
-                        You've reached your monthly receipt upload limit. Upgrade your plan to upload more receipts and unlock powerful AI insights.
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => window.open('/pricing', '_blank')}
-                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md transition-colors"
-                        >
-                          View Plans
-                        </button>
-                        <button
-                          onClick={() => setShowUpgradePrompt(false)}
-                          className="px-3 py-1.5 bg-white hover:bg-gray-50 text-purple-600 text-xs font-medium rounded-md border border-purple-300 transition-colors"
-                        >
-                          Maybe Later
-                        </button>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 

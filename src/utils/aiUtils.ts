@@ -298,7 +298,7 @@ export async function generateRoadmapAnalysis(form: {
         mentalStatus: form.goalDescription || ''
       })
     });
-
+    
     if (!response.ok) {
       console.error('Calendar generation failed:', response.status);
       return generateFallbackRoadmap(form);
@@ -380,10 +380,10 @@ interface CalendarData {
 
 function convertCalendarToRoadmap(calendar: CalendarData, form: { goals: string[] }): RoadmapAnalysisResult {
   const { profileSummary } = calendar;
-  
-  return {
+      
+      return {
     summary: `Your personalized financial roadmap is ready! Based on your profile, we've created a 7-day action plan focused on ${form.goals.join(', ')}.`,
-    scores: {
+        scores: {
       Readiness: profileSummary.urgencyScore,
       Growth: profileSummary.complexityScore,
       Diversification: Math.min(form.goals.length * 2, 10),
@@ -428,22 +428,22 @@ function getIconForCategory(category: string): string {
 }
 
 function generateFallbackRoadmap(form: { goals: string[] }): RoadmapAnalysisResult {
-  return {
+        return {
     summary: `Your financial roadmap is ready! We've created a personalized plan to help you achieve your goals: ${form.goals.join(', ')}.`,
-    scores: {
+          scores: {
       Readiness: 7,
       Growth: 6,
       Diversification: Math.min(form.goals.length * 2, 10),
       'Risk Management': 7,
       Opportunity: 7,
       Stability: 7
-    },
-    suggestions: [
+          },
+          suggestions: [
       'Start with small, achievable daily actions',
       'Focus on your priority goals first',
       'Track your progress weekly'
     ],
-    steps: [
+          steps: [
       { title: 'Set Clear Goals', desc: 'Define specific financial objectives', type: 'Action', status: 'unlocked', estimatedTime: '30 mins' },
       { title: 'Create Budget', desc: 'Track income and expenses', type: 'Action', status: 'unlocked', estimatedTime: '45 mins' },
       { title: 'Build Emergency Fund', desc: 'Save 3-6 months of expenses', type: 'Action', status: 'unlocked', estimatedTime: '60 mins' }

@@ -198,9 +198,9 @@ export default function DebugAuth() {
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
             <h3 className="font-semibold text-yellow-800">Key Things to Check:</h3>
             <ul className="list-disc list-inside text-yellow-700 mt-2">
-              <li>appUrl should be: https://kly-ro.xyz</li>
-              <li>windowOrigin should be: https://kly-ro.xyz</li>
-              <li>redirectUrl should be: https://kly-ro.xyz/auth/callback</li>
+              <li>appUrl should be: https://www.kly-ro.xyz</li>
+              <li>windowOrigin should be: https://www.kly-ro.xyz</li>
+              <li>redirectUrl should be: https://www.kly-ro.xyz/auth/callback</li>
             </ul>
           </div>
         </div>

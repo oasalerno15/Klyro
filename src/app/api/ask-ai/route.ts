@@ -216,7 +216,7 @@ Total transactions available: ${transactions.length}
     }
     
     if (errorMessage.includes('NetworkError')) {
-      return NextResponse.json(
+    return NextResponse.json(
         { error: 'Network error occurred' },
         { status: 503 }
       );
