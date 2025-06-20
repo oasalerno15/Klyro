@@ -7,6 +7,8 @@ import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContai
 import { useAuth } from '@/lib/auth';
 import ModernGraph from '@/components/ModernGraph';
 import AIInsightsSection from '@/components/AIInsightsSection';
+import ProfileModal from '@/components/ProfileModal';
+import PaywallModal from '@/components/PaywallModal';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -16,6 +18,8 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authError, setAuthError] = useState('');
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
   
   const { user } = useAuth();
   const supabase = createClient();
@@ -315,16 +319,21 @@ export default function Home() {
       return;
     }
 
-    // Construct the payment URL with proper success/cancel URLs
+    // Show paywall modal for better user experience
+    setShowPaywallModal(true);
+  };
+
+  const handleDirectPayment = (tier: 'starter' | 'pro' | 'premium') => {
+    // Direct payment handler (called from modals)
     const baseUrl = window.location.origin;
     const paymentUrl = PAYMENT_LINKS[tier];
     
     // Store user info in localStorage so webhook can find them
-    localStorage.setItem('klyro_payment_user_email', user.email || '');
+    localStorage.setItem('klyro_payment_user_email', user?.email || '');
     localStorage.setItem('klyro_payment_tier', tier);
     localStorage.setItem('klyro_payment_timestamp', Date.now().toString());
     
-    console.log(`Redirecting ${user.email} to ${tier} payment...`);
+    console.log(`Redirecting ${user?.email} to ${tier} payment...`);
     console.log(`Success URL should be: ${baseUrl}/?success=true`);
     console.log(`Cancel URL should be: ${baseUrl}/?canceled=true`);
     
@@ -465,22 +474,53 @@ export default function Home() {
                 className="flex items-center space-x-4"
                 variants={slideInRight}
               >
-                <motion.button
-                  onClick={() => setShowAuthModal(true)}
-                  className="text-gray-700/80 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
-                  whileHover={{ y: -1 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Log in
-                </motion.button>
-                <motion.button
-                  onClick={() => setShowAuthModal(true)}
-                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors duration-200 shadow-lg"
-                  whileHover={{ y: -1, scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Sign up
-                </motion.button>
+                {user ? (
+                  // Show user profile when logged in
+                  <div className="flex items-center space-x-3">
+                    <div className="text-sm text-gray-700">
+                      Welcome, {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                    </div>
+                    <motion.button
+                      onClick={() => setShowProfileModal(true)}
+                      className="flex items-center space-x-2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors duration-200 shadow-lg"
+                      whileHover={{ y: -1, scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+                        {user.user_metadata?.avatar_url ? (
+                          <img 
+                            src={user.user_metadata.avatar_url} 
+                            alt="Profile" 
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          (user.user_metadata?.full_name || user.email || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <span>Profile</span>
+                    </motion.button>
+                  </div>
+                ) : (
+                  // Show login/signup when not logged in
+                  <>
+                    <motion.button
+                      onClick={() => setShowAuthModal(true)}
+                      className="text-gray-700/80 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Log in
+                    </motion.button>
+                    <motion.button
+                      onClick={() => setShowAuthModal(true)}
+                      className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors duration-200 shadow-lg"
+                      whileHover={{ y: -1, scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Sign up
+                    </motion.button>
+                  </>
+                )}
               </motion.div>
             </div>
           </div>
@@ -1305,6 +1345,26 @@ export default function Home() {
           </div>
         </div>
       </motion.section>
+
+      {/* Profile Modal */}
+      {showProfileModal && (
+        <ProfileModal
+          user={user}
+          darkMode={false}
+          onClose={() => setShowProfileModal(false)}
+        />
+      )}
+
+      {/* Paywall Modal */}
+      {showPaywallModal && (
+        <PaywallModal
+          isOpen={showPaywallModal}
+          onClose={() => setShowPaywallModal(false)}
+          feature="upgrade"
+          currentPlan="free"
+          onUpgrade={() => setShowPaywallModal(false)}
+        />
+      )}
     </div>
   );
 }
