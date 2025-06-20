@@ -1,0 +1,16 @@
+{
+  "name": "Klyro - Financial Wellness Platform",
+  "short_name": "Klyro",
+  "description": "Track expenses, analyze spending patterns, and achieve financial goals with AI-powered insights.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+} 

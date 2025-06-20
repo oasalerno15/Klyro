@@ -4,28 +4,49 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { loadStripe } from '@stripe/stripe-js';
-import { PLAN_DETAILS } from '../utils/stripe-constants';
 import { useAuth } from '@/lib/auth';
-import PricingModal from '@/components/PricingModal';
 import ModernGraph from '@/components/ModernGraph';
 import AIInsightsSection from '@/components/AIInsightsSection';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-
 export default function Home() {
   const [loading, setLoading] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [selectedTier, setSelectedTier] = useState<'starter' | 'pro' | 'premium' | null>(null);
-  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   
   const { user } = useAuth();
   const supabase = createClient();
+
+  // Payment links
+  const PAYMENT_LINKS = {
+    starter: 'https://buy.stripe.com/test_00w4gy5ikd3j4cx8PmcbC00',
+    pro: 'https://buy.stripe.com/test_8x27sK124fbr4cx4z6cbC01',
+    premium: 'https://buy.stripe.com/test_6oU7sKaCE8N39wRghOcbC02'
+  };
+  
+  // Check for payment success
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const canceled = urlParams.get('canceled');
+    
+    if (success === 'true') {
+      setShowSuccessMessage(true);
+      // Redirect to dashboard after 3 seconds
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 3000);
+    }
+    
+    if (canceled === 'true') {
+      setAuthError('Payment was canceled. You can try again anytime.');
+      // Clear the URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
   
   // Check for auth errors from URL params
   useEffect(() => {
@@ -285,88 +306,71 @@ export default function Home() {
     y: Math.floor(i / 5) * 20 + 10,
   }));
 
-  // Add this function inside the Home component
-  const handleUpgrade = async (tier: 'starter' | 'pro' | 'premium') => {
-    try {
-      setCheckoutLoading(tier); // Set loading for specific tier
-      
-      if (!user) {
-        alert('Please sign in to upgrade your subscription');
-        return;
-      }
-
-      const priceIds = {
-        starter: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID,
-        pro: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
-        premium: process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID,
-      };
-
-      const priceId = priceIds[tier];
-      if (!priceId) {
-        console.error('Price ID not found for tier:', tier);
-        alert('Configuration error. Please try again later.');
-        return;
-      }
-
-      const requestData = {
-        priceId,
-        userId: user.id,
-        successUrl: `${window.location.origin}/payment/success?plan=${tier}`,
-        cancelUrl: `${window.location.origin}/pricing?payment=cancelled`,
-      };
-
-      console.log('Making request with:', requestData);
-
-      // Update the API endpoint URL
-      const response = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('Error response details:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: text,
-        });
-
-        try {
-          const errorData = JSON.parse(text);
-          throw new Error(errorData.error || 'Failed to create checkout session');
-        } catch (e) {
-          throw new Error(`Server error: ${text}`);
-        }
-      }
-
-      const data = await response.json();
-      console.log('Checkout session created:', data);
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('No checkout URL received');
-      }
-    } catch (error: any) {
-      console.error('Upgrade error details:', error);
-      alert(error.message || 'Failed to initiate upgrade. Please try again.');
-    } finally {
-      setCheckoutLoading(null); // Clear loading state
+  // Handle payment flow
+  const handlePayment = (tier: 'starter' | 'pro' | 'premium') => {
+    // If user is not signed in, prompt them to sign in first
+    if (!user) {
+      setAuthError('Please sign in or create an account before purchasing a subscription. This helps us associate your payment with your account.');
+      setShowAuthModal(true);
+      return;
     }
-  };
 
-  // Update the pricing plan buttons to use the modal
-  const handlePlanSelect = (tier: 'starter' | 'pro' | 'premium') => {
-    setSelectedTier(tier);
-    setShowPricingModal(true);
+    // Construct the payment URL with proper success/cancel URLs
+    const baseUrl = window.location.origin;
+    const paymentUrl = PAYMENT_LINKS[tier];
+    
+    // Store user info in localStorage so webhook can find them
+    localStorage.setItem('klyro_payment_user_email', user.email || '');
+    localStorage.setItem('klyro_payment_tier', tier);
+    localStorage.setItem('klyro_payment_timestamp', Date.now().toString());
+    
+    console.log(`Redirecting ${user.email} to ${tier} payment...`);
+    console.log(`Success URL should be: ${baseUrl}/?success=true`);
+    console.log(`Cancel URL should be: ${baseUrl}/?canceled=true`);
+    
+    // Note: For Stripe Payment Links, you need to configure the success and cancel URLs
+    // in your Stripe Dashboard under the Payment Link settings:
+    // Success URL: https://your-domain.com/?success=true
+    // Cancel URL: https://your-domain.com/?canceled=true
+    
+    // Redirect to Stripe
+    window.location.href = paymentUrl;
   };
 
   return (
     <div className="relative">
+      {/* Success Message Modal */}
+      {showSuccessMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-4">
+          <motion.div 
+            className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md text-center"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <div className="mb-6">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
+              <p className="text-gray-600">
+                Thank you for subscribing to Klyro. Please wait while we redirect you to your dashboard...
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-center">
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span className="text-gray-600">Redirecting...</span>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <div className="relative min-h-screen">
         {/* Background image with parallax */}
@@ -389,15 +393,17 @@ export default function Home() {
         {/* Dark overlay */}
         <div className="absolute inset-0 bg-black/50 z-10"></div>
 
-        {/* Navigation with staggered fade in */}
+        {/* Navigation with cream white background - Made sticky */}
         <motion.nav 
-          className="relative z-20 bg-transparent"
+          className="fixed top-0 left-0 right-0 z-20 bg-cream-50/95 backdrop-blur-md border-b border-cream-200/50"
           initial="hidden"
           animate="visible"
           variants={staggerChildren}
+          style={{ backgroundColor: 'rgba(254, 252, 232, 0.95)' }}
         >
-          <div className="max-w-7xl mx-auto px-0 sm:px-2 lg:px-4 py-2">
-            <div className="flex justify-between items-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              {/* Logo - Made MUCH MUCH bigger and black */}
               <motion.div 
                 className="flex items-center"
                 variants={slideInLeft}
@@ -405,47 +411,83 @@ export default function Home() {
                 <img 
                   src="https://i.imgur.com/yk9L9Nx.png" 
                   alt="Klyro Logo" 
-                  className="w-40 mr-0.5 brightness-0 invert"
+                  className="w-24 h-24 mr-2 brightness-0"
+                  style={{ filter: 'brightness(0)' }}
                 />
-                <span className="text-3xl font-bold text-white">Klyro</span>
+                <span className="text-2xl font-bold text-gray-900">Klyro</span>
               </motion.div>
-              <div className="space-x-8">
+
+              {/* Center Navigation - Removed Blog */}
+              <motion.div 
+                className="hidden md:flex items-center space-x-8"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: {
+                    opacity: 1,
+                    transition: {
+                      staggerChildren: 0.1,
+                      delayChildren: 0.2
+                    }
+                  }
+                }}
+              >
                 {[
-                  {name: "About", href: "#about"},
-                  {name: "Features", href: "#features"},
-                  {name: "Contact", href: "#contact"}
+                  {name: "Product", href: "#features"},
+                  {name: "Pricing", href: "#pricing"},
+                  {name: "Resources", href: "#resources"},
+                  {name: "About", href: "#about"}
                 ].map((item, i) => (
                   <motion.a
                     key={i}
                     href={item.href}
-                    className="text-white hover:text-gray-200 relative"
+                    className="text-gray-700/80 hover:text-gray-900 text-lg font-medium transition-colors duration-200 relative group"
                     variants={{
-                      hidden: { opacity: 0, y: -20 },
+                      hidden: { opacity: 0, y: -10 },
                       visible: {
                         opacity: 1,
                         y: 0,
                         transition: {
-                          delay: i * 0.1,
-                          duration: 0.5,
+                          duration: 0.4,
                           ease: "easeOut"
                         }
                       }
                     }}
-                    whileHover={{
-                      y: -2,
-                      transition: { duration: 0.2 }
-                    }}
+                    whileHover={{ y: -1 }}
                   >
                     {item.name}
+                    <span className="absolute inset-x-0 -bottom-1 h-px bg-gray-900 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
                   </motion.a>
                 ))}
-              </div>
+              </motion.div>
+
+              {/* Right side buttons */}
+              <motion.div 
+                className="flex items-center space-x-4"
+                variants={slideInRight}
+              >
+                <motion.button
+                  onClick={() => setShowAuthModal(true)}
+                  className="text-gray-700/80 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Log in
+                </motion.button>
+                <motion.button
+                  onClick={() => setShowAuthModal(true)}
+                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors duration-200 shadow-lg"
+                  whileHover={{ y: -1, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Sign up
+                </motion.button>
+              </motion.div>
             </div>
           </div>
         </motion.nav>
 
-        {/* Main content with staggered animations */}
-        <main className="relative z-20 flex items-center justify-center min-h-screen">
+        {/* Main content with staggered animations - Added top padding for sticky nav */}
+        <main className="relative z-10 flex items-center justify-center min-h-screen pt-16">
           <motion.div 
             className="text-center px-4"
             initial="hidden"
@@ -621,6 +663,7 @@ export default function Home() {
 
       {/* About Us Section - MOVED TO SECOND POSITION */}
       <motion.section 
+        id="about"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
@@ -1075,23 +1118,12 @@ export default function Home() {
                   </li>
                 </ul>
                 <motion.button
-                  whileHover={{ scale: checkoutLoading === 'starter' ? 1 : 1.02 }}
-                  whileTap={{ scale: checkoutLoading === 'starter' ? 1 : 0.98 }}
-                  onClick={() => handleUpgrade('starter')}
-                  disabled={checkoutLoading === 'starter'}
-                  className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handlePayment('starter')}
+                  className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto"
                 >
-                  {checkoutLoading === 'starter' ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </>
-                  ) : (
-                    'Get Started'
-                  )}
+                  Get Started
                 </motion.button>
               </div>
             </motion.div>
@@ -1143,23 +1175,12 @@ export default function Home() {
                   </li>
                 </ul>
                 <motion.button
-                  whileHover={{ scale: checkoutLoading === 'pro' ? 1 : 1.02 }}
-                  whileTap={{ scale: checkoutLoading === 'pro' ? 1 : 0.98 }}
-                  onClick={() => handleUpgrade('pro')}
-                  disabled={checkoutLoading === 'pro'}
-                  className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handlePayment('pro')}
+                  className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto"
                 >
-                  {checkoutLoading === 'pro' ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </>
-                  ) : (
-                    'Get Started'
-                  )}
+                  Get Started
                 </motion.button>
               </div>
             </motion.div>
@@ -1208,23 +1229,12 @@ export default function Home() {
                   </li>
                 </ul>
                 <motion.button
-                  whileHover={{ scale: checkoutLoading === 'premium' ? 1 : 1.02 }}
-                  whileTap={{ scale: checkoutLoading === 'premium' ? 1 : 0.98 }}
-                  onClick={() => handleUpgrade('premium')}
-                  disabled={checkoutLoading === 'premium'}
-                  className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handlePayment('premium')}
+                  className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto"
                 >
-                  {checkoutLoading === 'premium' ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </>
-                  ) : (
-                    'Get Started'
-                  )}
+                  Get Started
                 </motion.button>
               </div>
             </motion.div>
@@ -1295,17 +1305,6 @@ export default function Home() {
           </div>
         </div>
       </motion.section>
-
-      {/* Add the PricingModal */}
-      <PricingModal
-        isOpen={showPricingModal}
-        onClose={() => {
-          setShowPricingModal(false);
-          setSelectedTier(null);
-        }}
-        selectedTier={selectedTier}
-        onUpgrade={handleUpgrade}
-      />
     </div>
   );
 }
