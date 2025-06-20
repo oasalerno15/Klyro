@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { SUBSCRIPTION_LIMITS, SubscriptionTier } from '@/utils/stripe-constants';
+import { useAuth } from '@/lib/auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'premium';
 
 interface UserSubscription {
   id: string;
@@ -18,136 +20,221 @@ interface UserSubscription {
   stripe_subscription_id?: string;
 }
 
-interface UserUsage {
+interface SubscriptionLimits {
   transactions: number;
   receipts: number;
-  ai_chats: number;
+  aiChats: number;
+  features: string[];
 }
 
-interface UseSubscriptionResult {
-  subscription: UserSubscription | null;
-  usage: UserUsage;
-  loading: boolean;
-  error: string | null;
-  refreshSubscription: () => Promise<void>;
-}
+const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
+  free: {
+    transactions: 10,
+    receipts: 5,
+    aiChats: 3,
+    features: ['basic_tracking', 'mood_logging']
+  },
+  starter: {
+    transactions: 20,
+    receipts: 20,
+    aiChats: 10,
+    features: ['basic_tracking', 'mood_logging', 'receipt_scanning']
+  },
+  pro: {
+    transactions: 50,
+    receipts: 50,
+    aiChats: 100,
+    features: ['basic_tracking', 'mood_logging', 'receipt_scanning', 'ai_insights', 'analytics']
+  },
+  premium: {
+    transactions: -1, // unlimited
+    receipts: -1,     // unlimited
+    aiChats: -1,      // unlimited
+    features: ['basic_tracking', 'mood_logging', 'receipt_scanning', 'ai_insights', 'analytics', 'premium_features', 'priority_support']
+  }
+};
 
-export function useSubscription(userId?: string): UseSubscriptionResult {
+export const useSubscription = () => {
+  const { user } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [usage, setUsage] = useState<UserUsage>({ transactions: 0, receipts: 0, ai_chats: 0 });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [usage, setUsage] = useState({
+    transactions: 0,
+    receipts: 0,
+    aiChats: 0
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchSubscription();
+      fetchUsage();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const fetchSubscription = async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
 
     try {
-      setLoading(true);
-      setError(null);
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-      // Try to fetch subscription from database
-      let subData = null;
-      try {
-        const { data, error: subError } = await supabase
-          .from('user_subscriptions')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
-
-        if (subError && subError.code !== 'PGRST116') { // PGRST116 is "not found"
-          // Only throw if it's not a "not found" error
-          if (!subError.message?.includes('relation') && !subError.message?.includes('does not exist')) {
-            throw subError;
-          }
-        } else if (data) {
-          subData = data;
-        }
-      } catch (dbError: any) {
-        // Database tables don't exist yet - that's okay for payment links
-        console.log('Subscription tables not available yet - using default free tier');
-      }
-
-      // If no subscription exists or tables don't exist, create a default free subscription
-      if (!subData) {
-        const defaultSubscription: UserSubscription = {
-          id: `free_${userId}`,
-          user_id: userId,
-          subscription_tier: 'free',
-          status: 'active',
-        };
-        setSubscription(defaultSubscription);
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('Error fetching subscription:', error);
       } else {
-        setSubscription(subData);
+        setSubscription(data);
       }
-
-      // Try to fetch usage
-      let usageMap: Record<string, number> = {};
-      try {
-        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-        const { data: usageData, error: usageError } = await supabase
-          .from('user_usage')
-          .select('feature_type, usage_count')
-          .eq('user_id', userId)
-          .eq('month_year', currentMonth);
-
-        if (usageError && !usageError.message?.includes('relation') && !usageError.message?.includes('does not exist')) {
-          throw usageError;
-        }
-
-        if (usageData) {
-          usageMap = usageData.reduce((acc, item) => {
-            acc[item.feature_type] = item.usage_count;
-            return acc;
-          }, {} as Record<string, number>);
-        }
-      } catch (usageError: any) {
-        // Usage tables don't exist yet - that's okay, we'll track locally
-        console.log('Usage tracking tables not available yet - using default counts');
-      }
-
-      setUsage({
-        transactions: usageMap.transaction || 0,
-        receipts: usageMap.receipt || 0,
-        ai_chats: usageMap.ai_chat || 0,
-      });
-
-    } catch (err: any) {
-      console.error('Error fetching subscription:', err);
-      // Don't set error for missing tables - just use defaults
-      if (!err.message?.includes('relation') && !err.message?.includes('does not exist')) {
-        setError(err.message);
-      }
-      
-      // Set default free subscription even on error
-      if (!subscription) {
-        const defaultSubscription: UserSubscription = {
-          id: `free_${userId}`,
-          user_id: userId || 'unknown',
-          subscription_tier: 'free',
-          status: 'active',
-        };
-        setSubscription(defaultSubscription);
-      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchSubscription();
-  }, [userId]);
+  const fetchUsage = async () => {
+    if (!user) return;
+
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+
+    try {
+      const { data, error } = await supabase
+        .from('user_usage')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('month_year', currentMonth);
+
+      if (error) {
+        console.error('Error fetching usage:', error);
+        return;
+      }
+
+      const usageData = {
+        transactions: 0,
+        receipts: 0,
+        aiChats: 0
+      };
+
+      data?.forEach((item) => {
+        if (item.feature_type === 'transaction') usageData.transactions = item.usage_count;
+        if (item.feature_type === 'receipt') usageData.receipts = item.usage_count;
+        if (item.feature_type === 'ai_chat') usageData.aiChats = item.usage_count;
+      });
+
+      setUsage(usageData);
+    } catch (error) {
+      console.error('Error fetching usage:', error);
+    }
+  };
+
+  // Get current subscription tier
+  const getCurrentTier = (): SubscriptionTier => {
+    if (!subscription || subscription.status !== 'active') {
+      return 'free';
+    }
+    return subscription.subscription_tier as SubscriptionTier;
+  };
+
+  // Check if user has access to a feature
+  const hasFeatureAccess = (feature: string): boolean => {
+    const tier = getCurrentTier();
+    return SUBSCRIPTION_LIMITS[tier].features.includes(feature);
+  };
+
+  // Check if user can use a feature based on usage limits
+  const canUseFeature = (featureType: 'transactions' | 'receipts' | 'aiChats'): boolean => {
+    const tier = getCurrentTier();
+    const limit = SUBSCRIPTION_LIMITS[tier][featureType];
+    
+    // -1 means unlimited
+    if (limit === -1) return true;
+    
+    return usage[featureType] < limit;
+  };
+
+  // Get remaining usage for a feature
+  const getRemainingUsage = (featureType: 'transactions' | 'receipts' | 'aiChats'): number => {
+    const tier = getCurrentTier();
+    const limit = SUBSCRIPTION_LIMITS[tier][featureType];
+    
+    // -1 means unlimited
+    if (limit === -1) return -1;
+    
+    return Math.max(0, limit - usage[featureType]);
+  };
+
+  // Increment usage for a feature
+  const incrementUsage = async (featureType: 'transactions' | 'receipts' | 'aiChats'): Promise<boolean> => {
+    if (!user) return false;
+
+    // Check if user can use this feature
+    if (!canUseFeature(featureType)) {
+      return false;
+    }
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    try {
+      const { error } = await supabase.rpc('increment_user_usage', {
+        p_user_id: user.id,
+        p_feature_type: featureType,
+        p_increment: 1
+      });
+
+      if (error) {
+        console.error('Error incrementing usage:', error);
+        return false;
+      }
+
+      // Update local usage state
+      setUsage(prev => ({
+        ...prev,
+        [featureType]: prev[featureType] + 1
+      }));
+
+      return true;
+    } catch (error) {
+      console.error('Error incrementing usage:', error);
+      return false;
+    }
+  };
+
+  // Check if subscription is active and not expired
+  const isSubscriptionActive = (): boolean => {
+    if (!subscription) return false;
+    
+    if (subscription.status !== 'active') return false;
+    
+    // Check if subscription has expired
+    if (subscription.current_period_end) {
+      const endDate = new Date(subscription.current_period_end);
+      const now = new Date();
+      return endDate > now;
+    }
+    
+    return true;
+  };
 
   return {
     subscription,
-    usage,
     loading,
-    error,
-    refreshSubscription: fetchSubscription,
+    usage,
+    getCurrentTier,
+    hasFeatureAccess,
+    canUseFeature,
+    getRemainingUsage,
+    incrementUsage,
+    isSubscriptionActive,
+    refresh: () => {
+      fetchSubscription();
+      fetchUsage();
+    },
+    limits: SUBSCRIPTION_LIMITS[getCurrentTier()]
   };
-}
+};
 
 // Hook for incrementing usage - simplified for payment links
 export function useIncrementUsage() {
