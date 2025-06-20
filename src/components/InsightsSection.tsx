@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { generateInsight } from '@/utils/aiUtils';
+import { useAuth } from '@/lib/auth';
+import { usePaywall } from '@/hooks/usePaywall';
 import MetricCard from './MetricCard';
 import MetricModal from './MetricModal';
 import ViewDropdown, { VIEW_OPTIONS } from './ViewDropdown';
@@ -10,6 +12,7 @@ import BudgetPieChart from './BudgetPieChart';
 import SpendingBarChart from './SpendingBarChart';
 import TrendLineChart from './TrendLineChart';
 import AIInsightsView from './AIInsightsView';
+import PaywallModal from './PaywallModal';
 
 // Custom CSS for pulse animation
 const pulseStyles = `
@@ -192,6 +195,9 @@ type ChatSession = {
 };
 
 export default function InsightsSection() {
+  const { user } = useAuth();
+  const { checkFeatureAccess, paywallState, hidePaywall } = usePaywall();
+  
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -483,6 +489,14 @@ export default function InsightsSection() {
 
   const handleSend = async () => {
     if (message.trim()) {
+      // Check paywall access for AI chat
+      console.log('🔍 AI chat attempted');
+      if (!checkFeatureAccess('ai_chat')) {
+        console.log('❌ AI chat blocked by paywall');
+        return; // Paywall will be shown by checkFeatureAccess
+      }
+      console.log('✅ AI chat allowed');
+      
       // Add user message to the chat
       const userMessage: Message = { role: 'user', content: message.trim() };
       const updatedMessages = [...messages, userMessage];
@@ -649,6 +663,23 @@ CONVERSATIONAL GUIDELINES:
         const finalMessages = [...updatedMessages, assistantMessage];
         setMessages(finalMessages);
         
+        // Increment AI chat usage after successful completion
+        if (user?.id) {
+          try {
+            await fetch('/api/usage/increment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                userId: user.id, 
+                featureType: 'ai_chat',
+                increment: 1 
+              }),
+            });
+          } catch (error) {
+            console.error('Error tracking AI chat usage:', error);
+          }
+        }
+        
         // Save to chat history when complete
         // Only save if this isn't a loaded history session or if it's a new follow-up to an existing session
         if (!selectedHistorySession) {
@@ -691,12 +722,12 @@ CONVERSATIONAL GUIDELINES:
           setChatHistory(updatedHistory);
         }
       } catch (error) {
-        console.error('Error getting AI insight:', error);
-        // Add error message if AI call fails
-        setMessages(prevMessages => [
-          ...prevMessages, 
-          { role: 'assistant', content: 'Sorry, I encountered an error processing your request. Please try again.' }
-        ]);
+        console.error('Error generating insight:', error);
+        const errorMessage: Message = { 
+          role: 'assistant', 
+          content: "I'm sorry, I encountered an error while generating your insight. Please try again." 
+        };
+        setMessages(prev => [...prev, errorMessage]);
       } finally {
         setIsLoading(false);
       }
@@ -1036,6 +1067,15 @@ CONVERSATIONAL GUIDELINES:
           </div>
         )}
       </div>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={paywallState.isOpen}
+        onClose={hidePaywall}
+        feature={paywallState.feature}
+        currentPlan={paywallState.currentPlan}
+        onUpgrade={hidePaywall}
+      />
     </div>
   );
 }

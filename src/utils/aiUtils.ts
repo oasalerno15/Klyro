@@ -303,14 +303,14 @@ export async function generateRoadmapAnalysis(form: {
       console.error('Calendar generation failed:', response.status);
       return generateFallbackRoadmap(form);
     }
-
+    
     const data = await response.json() as { calendar?: CalendarData };
     
     if (!data.calendar) {
       console.error('No calendar data received');
       return generateFallbackRoadmap(form);
-    }
-
+      }
+      
     // Convert calendar data to roadmap format
     return convertCalendarToRoadmap(data.calendar, form);
 
@@ -376,7 +376,7 @@ interface CalendarData {
     focusArea: string;
   }>;
   tips: string[];
-}
+          }
 
 function convertCalendarToRoadmap(calendar: CalendarData, form: { goals: string[] }): RoadmapAnalysisResult {
   const { profileSummary } = calendar;
@@ -390,7 +390,7 @@ function convertCalendarToRoadmap(calendar: CalendarData, form: { goals: string[
       'Risk Management': profileSummary.riskTolerance === 'High' ? 6 : profileSummary.riskTolerance === 'Medium' ? 7 : 8,
       Opportunity: profileSummary.urgencyScore,
       Stability: profileSummary.stabilityScore
-    },
+        },
     suggestions: calendar.tips,
     steps: calendar.days.slice(0, 3).map((day, index) => ({
       title: day.focusArea,

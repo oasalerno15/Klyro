@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useUsage } from '@/hooks/useUsage';
+import { usePaywall } from '@/hooks/usePaywall';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -11,6 +12,8 @@ import FinanceSection from '@/components/FinanceSection';
 import SpendingChart from '@/components/PlaceholderChart';
 import InsightsSection from '@/components/InsightsSection';
 import RoadmapSection from '@/components/RoadmapSection';
+import PaywallModal from '@/components/PaywallModal';
+import UsageLimitBanner from '@/components/UsageLimitBanner';
 import { FaPaypal, FaBitcoin, FaApple, FaGoogle, FaAmazon, FaFacebook, FaUber, FaShoppingBag, FaGasPump, FaCoffee, FaUtensils, FaFilm, FaGamepad, FaBook, FaPlane, FaCar, FaHome, FaShoppingCart, FaMedkit, FaGraduationCap, FaDumbbell, FaPaw, FaGift, FaMusic, FaTshirt, FaLaptop, FaMobile, FaCamera, FaHeadphones, FaWifi, FaLightbulb, FaWrench, FaPaintBrush, FaLeaf, FaRecycle, FaBaby, FaRing, FaUmbrella, FaSuitcase, FaMapMarkedAlt, FaHotel, FaTicketAlt, FaBus, FaTrain, FaTaxi, FaShip, FaMotorcycle, FaBicycle, FaWalking, FaRunning, FaSwimmer, FaSkiing, FaFutbol, FaBasketballBall, FaVolleyballBall, FaTableTennis, FaBowlingBall, FaChess, FaDice, FaPuzzlePiece, FaRobot, FaRocket, FaSatellite, FaMicroscope, FaFlask, FaAtom, FaDna, FaVirus, FaPills, FaStethoscope, FaSyringe, FaBandAid, FaThermometerHalf, FaWeight, FaRuler, FaClock, FaCalendarAlt, FaCalendarCheck, FaCalendarPlus, FaCalendarMinus, FaCalendarTimes, FaStopwatch, FaHourglass, FaBell, FaVolumeUp, FaVolumeDown, FaVolumeMute, FaMicrophone, FaMicrophoneSlash, FaPhoneAlt, FaPhoneSlash, FaVideo, FaVideoSlash, FaDesktop, FaTabletAlt, FaKeyboard, FaMouse, FaPrint, FaFax, FaProjectDiagram, FaNetworkWired, FaServer, FaDatabase, FaCloud, FaCloudUploadAlt, FaCloudDownloadAlt, FaReceipt, FaMicrosoft, FaSpotify } from 'react-icons/fa';
 import { SiEthereum, SiTether, SiTesla, SiNetflix, SiStarbucks, SiWalmart, SiTarget, SiMcdonalds, SiCocacola, SiVisa, SiMastercard } from 'react-icons/si';
 import ReceiptUpload from '@/components/ReceiptUpload';
@@ -282,6 +285,16 @@ export default function Dashboard() {
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
   const { usageData, canUploadReceipt, getRemainingText } = useUsage();
+  const {
+    paywallState,
+    checkFeatureAccess,
+    hidePaywall,
+    getFeatureLimits,
+    getRemainingUsage,
+    currentTier,
+    subscription
+  } = usePaywall();
+  
   const [darkMode, setDarkMode] = useState(false);
   const [currentWelcomeIndex, setCurrentWelcomeIndex] = useState(0);
   const [welcomeMessage, setWelcomeMessage] = useState(welcomeMessages[0]);
@@ -310,10 +323,38 @@ export default function Dashboard() {
 
   const supabase = createClient();
 
+  // Enhanced receipt upload handler with paywall check
+  const handleReceiptUploadClick = () => {
+    console.log('🔍 Receipt upload clicked');
+    console.log('Current tier:', currentTier);
+    console.log('Current usage:', getRemainingUsage('receipt'));
+    console.log('Feature access check result:', checkFeatureAccess('receipt'));
+    
+    if (!checkFeatureAccess('receipt')) {
+      console.log('❌ Receipt upload blocked by paywall');
+      return; // Paywall will be shown by checkFeatureAccess
+    }
+    console.log('✅ Receipt upload allowed');
+    setShowReceiptUpload(true);
+  };
+
+  // Enhanced AI chat handler with paywall check  
+  const handleAIChatClick = () => {
+    if (!checkFeatureAccess('ai_chat')) {
+      return; // Paywall will be shown by checkFeatureAccess
+    }
+    // Continue with AI chat functionality
+  };
+
   // Function to handle receipt analysis results
   const handleReceiptAnalyzed = async (receiptData: any) => {
     if (!user?.id) {
       console.error('No user ID available');
+      return;
+    }
+
+    // Check if user can still upload receipts
+    if (!checkFeatureAccess('receipt')) {
       return;
     }
 
@@ -477,6 +518,22 @@ export default function Dashboard() {
       });
 
       // No need to add to unclassified since it's already classified during upload
+
+      // Increment receipt usage after successful processing
+      try {
+        await fetch('/api/usage/increment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: user.id, 
+            featureType: 'receipt',
+            increment: 1 
+          }),
+        });
+        console.log('✅ Receipt usage incremented');
+      } catch (error) {
+        console.error('Error tracking receipt usage:', error);
+      }
 
       console.log('🎉 Receipt processed successfully and added to your transaction history!');
     } catch (error) {
@@ -726,18 +783,18 @@ export default function Dashboard() {
   // Function to generate ticker items based on user's actual transactions
   const generateTickerItems = (transactions: any[], aiInsights: string[]) => {
     // Calculate spending by merchant
-    const merchantSpending = transactions.reduce((acc: any, tx: any) => {
+    const merchantSpending: Record<string, number> = transactions.reduce((acc: Record<string, number>, tx: any) => {
       const merchant = tx.name || 'Unknown';
       acc[merchant] = (acc[merchant] || 0) + Math.abs(tx.amount);
       return acc;
     }, {});
 
     // Get total spending
-    const totalSpending = Object.values(merchantSpending).reduce((sum: number, amount: any) => sum + amount, 0);
+    const totalSpending: number = Object.values(merchantSpending).reduce((sum: number, amount: number) => sum + amount, 0);
 
     // Get top merchants
     const topMerchants = Object.entries(merchantSpending)
-      .sort(([,a]: any, [,b]: any) => b - a)
+      .sort(([,a], [,b]) => (b as number) - (a as number))
       .slice(0, 4); // Show top 4 merchants
 
     const tickerItems: any[] = [];
@@ -745,8 +802,8 @@ export default function Dashboard() {
     // Only show real data - no fake content
     if (topMerchants.length > 0) {
       // Add merchant spending data with icons
-      topMerchants.forEach(([merchant, amount]: [string, any]) => {
-        const percentage = totalSpending > 0 ? ((amount / totalSpending) * 100).toFixed(1) : 0;
+      topMerchants.forEach(([merchant, amount]: [string, number]) => {
+        const percentage = totalSpending > 0 ? ((amount / totalSpending) * 100).toFixed(1) : '0';
         tickerItems.push({
           type: 'merchant',
           icon: getMerchantLogo(merchant),
@@ -1324,14 +1381,7 @@ export default function Dashboard() {
                 <h2 className="text-lg font-semibold">Transactions</h2>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => {
-                      if (!canUploadReceipt()) {
-                        setUpgradeReason('receipt');
-                        setShowUpgradePrompt(true);
-                      } else {
-                        setShowReceiptUpload(true);
-                      }
-                    }}
+                    onClick={handleReceiptUploadClick}
                     className={`inline-flex items-center px-3 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
                       canUploadReceipt() 
                         ? 'bg-gray-900 hover:bg-gray-800' 
@@ -1899,14 +1949,25 @@ export default function Dashboard() {
       <AnimatePresence>
         {showUpgradePrompt && (
           <UpgradePrompt
-            isOpen={showUpgradePrompt}
-            onClose={() => setShowUpgradePrompt(false)}
+            feature={upgradeReason}
             currentTier={usageData?.subscription?.subscription_tier || 'free'}
-            reason={upgradeReason}
-            usageData={usageData}
+            onClose={() => setShowUpgradePrompt(false)}
+            userId={user?.id}
           />
         )}
       </AnimatePresence>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={paywallState.isOpen}
+        onClose={hidePaywall}
+        feature={paywallState.feature}
+        currentPlan={paywallState.currentPlan}
+        onUpgrade={() => {
+          // This will be handled by the PaywallModal component directly
+          hidePaywall();
+        }}
+      />
     </div>
   );
 }

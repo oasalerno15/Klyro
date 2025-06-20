@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaCamera, FaUpload, FaSpinner, FaCheck, FaTimes } from 'react-icons/fa';
+import { usePaywall } from '@/hooks/usePaywall';
+import PaywallModal from './PaywallModal';
 
 interface ReceiptData {
   id: string;
@@ -30,6 +32,7 @@ interface ReceiptUploadProps {
 }
 
 export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onClose, isOpen }: ReceiptUploadProps) {
+  const { checkFeatureAccess, paywallState, hidePaywall } = usePaywall();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -46,6 +49,13 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
   const [moodDescription, setMoodDescription] = useState<string>('');
 
   const moodOptions = ['Happy', 'Neutral', 'Stressed', 'Excited', 'Sad', 'Anxious'];
+
+  // Reset form whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -107,6 +117,11 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
   };
 
   const handleFileUpload = async (files: File[]) => {
+    // Check paywall access before processing
+    if (!checkFeatureAccess('receipt')) {
+      return; // Paywall will be shown by checkFeatureAccess
+    }
+
     setUploadedFiles(prev => [...prev, ...files]);
     setIsAnalyzing(true);
     setError(null);
@@ -244,6 +259,7 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
     // Reset states when closing
     setUploadSuccess(false);
     setError(null);
+    resetForm();
   };
 
   const resetForm = () => {
@@ -254,6 +270,8 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
     setNeedVsWant(null);
     setSelectedMood('');
     setMoodDescription('');
+    setUploadedFiles([]);
+    setAnalysisResults([]);
   };
 
   return (
@@ -261,7 +279,10 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
       {/* Upload Button - only show if no onClose prop (not in modal mode) */}
       {!onClose && (
         <motion.button
-          onClick={() => setShowUploadModal(true)}
+          onClick={() => {
+            resetForm(); // Reset form when opening
+            setShowUploadModal(true);
+          }}
           className={`
             w-12 h-12 rounded-full flex items-center justify-center
             ${darkMode 
@@ -539,6 +560,15 @@ export default function ReceiptUpload({ onReceiptAnalyzed, darkMode = false, onC
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={paywallState.isOpen}
+        onClose={hidePaywall}
+        feature={paywallState.feature}
+        currentPlan={paywallState.currentPlan}
+        onUpgrade={hidePaywall}
+      />
     </>
   );
 } 

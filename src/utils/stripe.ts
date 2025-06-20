@@ -5,23 +5,24 @@ import type { SubscriptionTier } from './stripe-constants';
 export type { SubscriptionTier } from './stripe-constants';
 export { hasFeatureAccess, getRemainingTransactions, getRemainingReceipts } from './stripe-constants';
 
-// Validate environment variable
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not configured');
-}
+// Initialize Stripe only if secret key is available
+let stripe: Stripe | null = null;
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-05-28.basil',
-});
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2025-05-28.basil',
+  });
+} else {
+  console.warn('STRIPE_SECRET_KEY not configured - server-side Stripe functionality disabled');
+}
 
 export { stripe };
 
-// Export price IDs for easy access
+// Export price IDs for easy access (optional)
 export const PRICE_IDS = {
-  STARTER: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID!,
-  PRO: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID!,
-  PREMIUM: process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID!,
+  STARTER: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID || '',
+  PRO: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || '',
+  PREMIUM: process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID || '',
 };
 
 // Stripe Product IDs - Replace with your actual Stripe product IDs
@@ -45,8 +46,12 @@ export function getTierFromPriceId(priceId: string): SubscriptionTier {
   }
 }
 
-// Create Stripe customer
+// Create Stripe customer - only works if Stripe is configured
 export async function createStripeCustomer(email: string, name?: string, userId?: string) {
+  if (!stripe) {
+    throw new Error('Stripe not configured - cannot create customer');
+  }
+  
   const customer = await stripe.customers.create({
     email,
     name,
@@ -55,7 +60,7 @@ export async function createStripeCustomer(email: string, name?: string, userId?
   return customer;
 }
 
-// Create checkout session
+// Create checkout session - only works if Stripe is configured
 export async function createCheckoutSession({
   priceId,
   customerId,
@@ -69,6 +74,10 @@ export async function createCheckoutSession({
   successUrl: string;
   cancelUrl: string;
 }) {
+  if (!stripe) {
+    throw new Error('Stripe not configured - cannot create checkout session');
+  }
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     client_reference_id: userId,

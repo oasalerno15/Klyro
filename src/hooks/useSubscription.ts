@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { SubscriptionTier, hasFeatureAccess, getRemainingTransactions, getRemainingReceipts } from '../utils/stripe';
+import { SUBSCRIPTION_LIMITS, SubscriptionTier } from '@/utils/stripe-constants';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,8 +29,6 @@ interface UseSubscriptionResult {
   usage: UserUsage;
   loading: boolean;
   error: string | null;
-  hasFeature: (feature: string) => boolean;
-  canUseFeature: (feature: string) => { allowed: boolean; remaining?: number };
   refreshSubscription: () => Promise<void>;
 }
 
@@ -50,49 +48,65 @@ export function useSubscription(userId?: string): UseSubscriptionResult {
       setLoading(true);
       setError(null);
 
-      // Fetch subscription
-      const { data: subData, error: subError } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (subError && subError.code !== 'PGRST116') { // PGRST116 is "not found"
-        throw subError;
-      }
-
-      // If no subscription exists, create a free one
-      if (!subData) {
-        const { data: newSub, error: createError } = await supabase
+      // Try to fetch subscription from database
+      let subData = null;
+      try {
+        const { data, error: subError } = await supabase
           .from('user_subscriptions')
-          .insert({
-            user_id: userId,
-            subscription_tier: 'free',
-            status: 'active',
-          })
-          .select()
+          .select('*')
+          .eq('user_id', userId)
           .single();
 
-        if (createError) throw createError;
-        setSubscription(newSub);
+        if (subError && subError.code !== 'PGRST116') { // PGRST116 is "not found"
+          // Only throw if it's not a "not found" error
+          if (!subError.message?.includes('relation') && !subError.message?.includes('does not exist')) {
+            throw subError;
+          }
+        } else if (data) {
+          subData = data;
+        }
+      } catch (dbError: any) {
+        // Database tables don't exist yet - that's okay for payment links
+        console.log('Subscription tables not available yet - using default free tier');
+      }
+
+      // If no subscription exists or tables don't exist, create a default free subscription
+      if (!subData) {
+        const defaultSubscription: UserSubscription = {
+          id: `free_${userId}`,
+          user_id: userId,
+          subscription_tier: 'free',
+          status: 'active',
+        };
+        setSubscription(defaultSubscription);
       } else {
         setSubscription(subData);
       }
 
-      // Fetch usage
-      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-      const { data: usageData, error: usageError } = await supabase
-        .from('user_usage')
-        .select('feature_type, usage_count')
-        .eq('user_id', userId)
-        .eq('month_year', currentMonth);
+      // Try to fetch usage
+      let usageMap: Record<string, number> = {};
+      try {
+        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const { data: usageData, error: usageError } = await supabase
+          .from('user_usage')
+          .select('feature_type, usage_count')
+          .eq('user_id', userId)
+          .eq('month_year', currentMonth);
 
-      if (usageError) throw usageError;
+        if (usageError && !usageError.message?.includes('relation') && !usageError.message?.includes('does not exist')) {
+          throw usageError;
+        }
 
-      const usageMap = usageData?.reduce((acc, item) => {
-        acc[item.feature_type] = item.usage_count;
-        return acc;
-      }, {} as Record<string, number>) || {};
+        if (usageData) {
+          usageMap = usageData.reduce((acc, item) => {
+            acc[item.feature_type] = item.usage_count;
+            return acc;
+          }, {} as Record<string, number>);
+        }
+      } catch (usageError: any) {
+        // Usage tables don't exist yet - that's okay, we'll track locally
+        console.log('Usage tracking tables not available yet - using default counts');
+      }
 
       setUsage({
         transactions: usageMap.transaction || 0,
@@ -102,7 +116,21 @@ export function useSubscription(userId?: string): UseSubscriptionResult {
 
     } catch (err: any) {
       console.error('Error fetching subscription:', err);
-      setError(err.message);
+      // Don't set error for missing tables - just use defaults
+      if (!err.message?.includes('relation') && !err.message?.includes('does not exist')) {
+        setError(err.message);
+      }
+      
+      // Set default free subscription even on error
+      if (!subscription) {
+        const defaultSubscription: UserSubscription = {
+          id: `free_${userId}`,
+          user_id: userId || 'unknown',
+          subscription_tier: 'free',
+          status: 'active',
+        };
+        setSubscription(defaultSubscription);
+      }
     } finally {
       setLoading(false);
     }
@@ -112,57 +140,20 @@ export function useSubscription(userId?: string): UseSubscriptionResult {
     fetchSubscription();
   }, [userId]);
 
-  const hasFeature = (feature: string): boolean => {
-    if (!subscription) return false;
-    return hasFeatureAccess(subscription.subscription_tier, feature);
-  };
-
-  const canUseFeature = (feature: string): { allowed: boolean; remaining?: number } => {
-    if (!subscription) return { allowed: false };
-
-    const tier = subscription.subscription_tier;
-    
-    // Check if user has access to the feature at all
-    if (!hasFeatureAccess(tier, feature)) {
-      return { allowed: false };
-    }
-
-    // Check usage limits for specific features
-    switch (feature) {
-      case 'transaction':
-        const remainingTransactions = getRemainingTransactions(tier, usage.transactions);
-        return {
-          allowed: remainingTransactions !== 0,
-          remaining: remainingTransactions === -1 ? undefined : remainingTransactions
-        };
-      
-      case 'receipt':
-        const remainingReceipts = getRemainingReceipts(tier, usage.receipts);
-        return {
-          allowed: remainingReceipts !== 0,
-          remaining: remainingReceipts === -1 ? undefined : remainingReceipts
-        };
-      
-      default:
-        return { allowed: true };
-    }
-  };
-
   return {
     subscription,
     usage,
     loading,
     error,
-    hasFeature,
-    canUseFeature,
     refreshSubscription: fetchSubscription,
   };
 }
 
-// Hook for incrementing usage
+// Hook for incrementing usage - simplified for payment links
 export function useIncrementUsage() {
   const incrementUsage = async (userId: string, featureType: string, increment: number = 1) => {
     try {
+      // Try to increment in database if tables exist
       const response = await fetch('/api/usage/increment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -170,13 +161,15 @@ export function useIncrementUsage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to increment usage');
+        // If API doesn't exist or fails, just log and continue
+        console.log('Usage tracking API not available - continuing without tracking');
+        return { success: true, tracked: false };
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error incrementing usage:', error);
-      throw error;
+      console.log('Usage tracking not available - continuing without tracking');
+      return { success: true, tracked: false };
     }
   };
 

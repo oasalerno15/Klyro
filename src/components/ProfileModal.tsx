@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import PaywallModal from './PaywallModal';
 
 interface ProfileModalProps {
   user: any;
@@ -27,6 +28,8 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
   });
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [showBilling, setShowBilling] = useState(false);
 
   useEffect(() => {
     const fetchAccountData = async () => {
@@ -322,10 +325,16 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                       ></div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 mt-4">
-                      <button className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}>
+                      <button 
+                        onClick={() => setShowPaywall(true)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}
+                      >
                         Upgrade Plan
                       </button>
-                      <button className={`px-4 py-2 rounded-lg border ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'border-gray-300 hover:bg-gray-50 text-gray-700'} text-sm font-medium transition-colors`}>
+                      <button 
+                        onClick={() => setShowBilling(true)}
+                        className={`px-4 py-2 rounded-lg border ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'border-gray-300 hover:bg-gray-50 text-gray-700'} text-sm font-medium transition-colors`}
+                      >
                         View Billing
                       </button>
                     </div>
@@ -356,6 +365,179 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
           </div>
         </div>
       </motion.div>
+
+      {/* Paywall Modal */}
+      <AnimatePresence>
+        {showPaywall && (
+          <PaywallModal
+            isOpen={showPaywall}
+            onClose={() => setShowPaywall(false)}
+            feature="upgrade"
+            currentPlan="free"
+            onUpgrade={() => setShowPaywall(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Billing Modal */}
+      <AnimatePresence>
+        {showBilling && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[60] flex items-center justify-center p-4"
+            onClick={() => setShowBilling(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 30 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Compact Header */}
+              <div className="bg-gray-50 border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Billing Overview</h3>
+                      <p className="text-xs text-gray-500">Account usage and subscription details</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowBilling(false)}
+                    className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Compact Content */}
+              <div className="px-6 py-4 space-y-5">
+                {/* Subscription Status */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center">
+                        <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900 text-sm">Free Plan</h4>
+                        <p className="text-xs text-gray-500">$0.00/month</p>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+                      Active
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-200">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">5</p>
+                      <p className="text-xs text-gray-500">Transactions</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">2</p>
+                      <p className="text-xs text-gray-500">Receipts</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">0</p>
+                      <p className="text-xs text-gray-500">AI Chats</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compact Usage */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900">Current Usage</h4>
+                  
+                  {/* Transactions */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-gray-700">Transactions</span>
+                      <span className="text-xs text-gray-500">{accountStats.transactionsCount}/5</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all duration-500 ${
+                          accountStats.transactionsCount >= 5 ? 'bg-red-500' : 
+                          accountStats.transactionsCount >= 3 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${Math.min((accountStats.transactionsCount / 5) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Receipts */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-gray-700">Receipt Scans</span>
+                      <span className="text-xs text-gray-500">{accountStats.receiptsUploaded}/2</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all duration-500 ${
+                          accountStats.receiptsUploaded >= 2 ? 'bg-red-500' : 
+                          accountStats.receiptsUploaded >= 1 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${Math.min((accountStats.receiptsUploaded / 2) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* AI Chats */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-gray-700">AI Conversations</span>
+                      <span className="text-xs text-gray-500">Upgrade required</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div className="bg-gray-300 h-1.5 rounded-full w-0"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Compact Footer */}
+              <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-500">
+                    Need help? <button className="text-blue-600 hover:text-blue-700 font-medium">Contact support</button>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setShowBilling(false)}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowBilling(false);
+                        setShowPaywall(true);
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 transition-colors"
+                    >
+                      Upgrade Plan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 } 
