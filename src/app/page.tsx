@@ -7,6 +7,7 @@ import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContai
 import { useAuth } from '@/lib/auth';
 import ModernGraph from '@/components/ModernGraph';
 import AIInsightsSection from '@/components/AIInsightsSection';
+import PricingModal from '@/components/PricingModal';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -16,11 +17,15 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authError, setAuthError] = useState('');
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<'starter' | 'pro' | 'premium' | null>(null);
   
   const { user } = useAuth();
   const supabase = createClient();
 
-  // Payment links
+  // Payment links - These need to be updated in Stripe dashboard to redirect to:
+  // Success URL: https://www.kly-ro.xyz/success-{tier} (e.g., /success-starter)
+  // Cancel URL: https://www.kly-ro.xyz/?canceled=true
   const PAYMENT_LINKS = {
     starter: 'https://buy.stripe.com/test_00w4gy5ikd3j4cx8PmcbC00',
     pro: 'https://buy.stripe.com/test_8x27sK124fbr4cx4z6cbC01',
@@ -306,33 +311,39 @@ export default function Home() {
     y: Math.floor(i / 5) * 20 + 10,
   }));
 
-  // Handle payment flow
+  // Handle payment flow - Now shows PricingModal first
   const handlePayment = (tier: 'starter' | 'pro' | 'premium') => {
-    // Allow purchase without sign-in for better conversion rates
-    // User creation will be handled via Stripe webhook after payment
-    const baseUrl = window.location.origin;
-    const paymentUrl = PAYMENT_LINKS[tier];
-    
-    // Store payment info for webhook processing
+    setSelectedTier(tier);
+    setShowPricingModal(true);
+  };
+
+  // Handle upgrade after authentication
+  const handleUpgrade = async (tier: 'starter' | 'pro' | 'premium') => {
+    if (!user) {
+      throw new Error('Please sign in first');
+    }
+
+    console.log('🚀 Starting payment flow for user:', user.email);
+    console.log('📦 Selected tier:', tier);
+
+    // Store user info and redirect to Stripe
     localStorage.setItem('klyro_payment_tier', tier);
     localStorage.setItem('klyro_payment_timestamp', Date.now().toString());
+    localStorage.setItem('klyro_payment_user_email', user.email || '');
     
-    // Store user email if they're signed in (optional)
-    if (user?.email) {
-      localStorage.setItem('klyro_payment_user_email', user.email);
-    }
+    const baseUrl = window.location.origin;
+    console.log(`💡 Expected success redirect: ${baseUrl}/dashboard?success=true`);
+    console.log(`💡 Expected cancel redirect: ${baseUrl}/?canceled=true`);
+    console.log(`🔗 Redirecting to: ${PAYMENT_LINKS[tier]}`);
     
-    console.log(`Redirecting to ${tier} payment...`);
-    console.log(`Success URL should be: ${baseUrl}/?success=true`);
-    console.log(`Cancel URL should be: ${baseUrl}/?canceled=true`);
+    // Close the modal first
+    setShowPricingModal(false);
     
-    // Note: For Stripe Payment Links, you need to configure the success and cancel URLs
-    // in your Stripe Dashboard under the Payment Link settings:
-    // Success URL: https://your-domain.com/?success=true
-    // Cancel URL: https://your-domain.com/?canceled=true
-    
-    // Direct redirect to Stripe for better conversion
-    window.location.href = paymentUrl;
+    // Redirect to Stripe Payment Link
+    // NOTE: Make sure to configure these URLs in your Stripe Dashboard:
+    // Success URL: http://localhost:3000/dashboard?success=true  
+    // Cancel URL: http://localhost:3000/?canceled=true
+    window.location.href = PAYMENT_LINKS[tier];
   };
 
   return (
@@ -1303,6 +1314,16 @@ export default function Home() {
           </div>
         </div>
       </motion.section>
+
+      {/* Pricing Modal */}
+      {showPricingModal && (
+        <PricingModal
+          isOpen={showPricingModal}
+          onClose={() => setShowPricingModal(false)}
+          onUpgrade={handleUpgrade}
+          selectedTier={selectedTier}
+        />
+      )}
     </div>
   );
 }

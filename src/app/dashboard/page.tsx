@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useUsage } from '@/hooks/useUsage';
 import { usePaywall } from '@/hooks/usePaywall';
+import { useSubscription } from '@/hooks/useSubscription';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -294,6 +295,7 @@ export default function Dashboard() {
     currentTier,
     subscription
   } = usePaywall();
+  const subscriptionHook = useSubscription();
   
   const [darkMode, setDarkMode] = useState(false);
   const [currentWelcomeIndex, setCurrentWelcomeIndex] = useState(0);
@@ -320,6 +322,8 @@ export default function Dashboard() {
   const [archiveSuccess, setArchiveSuccess] = useState<string | null>(null);
   const [aiTickerInsights, setAiTickerInsights] = useState<string[]>([]);
   const [aiForecastData, setAiForecastData] = useState<any>(null);
+  const [showSubscriptionSuccess, setShowSubscriptionSuccess] = useState(false);
+  const [subscriptionSuccessMessage, setSubscriptionSuccessMessage] = useState('');
 
   const supabase = createClient();
 
@@ -1778,6 +1782,152 @@ export default function Dashboard() {
     }
   }, [transactions.length, fetchAiTickerInsights]);
 
+  // Function to manually create subscription (fallback when webhook isn't set up)
+  const createManualSubscription = async (tier: string) => {
+    console.log('🔧 createManualSubscription called with tier:', tier);
+    console.log('🔍 Current user:', user?.id, user?.email);
+    
+    if (!user?.id) {
+      console.log('❌ No user ID available for subscription creation');
+      return;
+    }
+
+    console.log('🔧 Creating manual subscription for tier:', tier);
+    
+    try {
+      const subscriptionData = {
+        user_id: user.id,
+        subscription_tier: tier,
+        status: 'active',
+        current_period_start: new Date().toISOString(),
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      console.log('💾 Attempting to insert subscription data:', subscriptionData);
+      
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .upsert(subscriptionData, {
+          onConflict: 'user_id'
+        });
+
+      if (error) {
+        console.error('❌ Error creating manual subscription:', error);
+        console.error('❌ Error details:', error.message, error.details, error.hint);
+      } else {
+        console.log('✅ Manual subscription created successfully');
+        console.log('✅ Subscription data returned:', data);
+        
+        // Initialize usage for current month
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const usageTypes = ['transactions', 'receipts', 'ai_chats'];
+        
+        console.log('🔧 Initializing usage for month:', currentMonth);
+        
+        for (const featureType of usageTypes) {
+          const usageData = {
+            user_id: user.id,
+            feature_type: featureType,
+            month_year: currentMonth,
+            usage_count: 0
+          };
+          
+          console.log('💾 Creating usage record:', usageData);
+          
+          const { error: usageError } = await supabase
+            .from('user_usage')
+            .upsert(usageData, {
+              onConflict: 'user_id,feature_type,month_year'
+            });
+            
+          if (usageError) {
+            console.error('❌ Error creating usage record:', usageError);
+          } else {
+            console.log('✅ Usage record created for:', featureType);
+          }
+        }
+        
+        console.log('✅ Usage records initialized');
+      }
+    } catch (error) {
+      console.error('❌ Error in manual subscription creation:', error);
+    }
+  };
+
+  // Check for subscription success on mount
+  useEffect(() => {
+    console.log('🔍 Dashboard useEffect running...');
+    console.log('🔍 Current URL:', window.location.href);
+    console.log('🔍 URL search params:', window.location.search);
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    
+    console.log('🔍 Success parameter:', success);
+    console.log('🔍 All URL params:', Object.fromEntries(urlParams.entries()));
+    
+    // Check localStorage
+    const paymentTier = localStorage.getItem('klyro_payment_tier');
+    const paymentTimestamp = localStorage.getItem('klyro_payment_timestamp');
+    const paymentEmail = localStorage.getItem('klyro_payment_user_email');
+    
+    console.log('🔍 localStorage data:', {
+      paymentTier,
+      paymentTimestamp,
+      paymentEmail,
+      user: user?.email
+    });
+    
+    if (success === 'true') {
+      console.log('✅ Success parameter detected!');
+      
+      const tierName = paymentTier ? paymentTier.charAt(0).toUpperCase() + paymentTier.slice(1) : 'Premium';
+      
+      console.log('🔍 Tier name for message:', tierName);
+      
+      setSubscriptionSuccessMessage(`Welcome to Klyro ${tierName}. Your subscription is now active and ready to use.`);
+      setShowSubscriptionSuccess(true);
+      
+      // Create manual subscription record (fallback for when webhook isn't set up)
+      if (paymentTier) {
+        console.log('🔧 About to create manual subscription for tier:', paymentTier);
+        createManualSubscription(paymentTier);
+      } else {
+        console.log('⚠️ No payment tier found in localStorage - creating default premium subscription');
+        createManualSubscription('premium');
+      }
+      
+      // Refresh subscription data to show updated tier
+      setTimeout(() => {
+        if (subscriptionHook.refreshSubscription) {
+          console.log('🔄 Refreshing subscription data after payment...');
+          subscriptionHook.refreshSubscription();
+        } else {
+          console.log('❌ refreshSubscription function not available');
+        }
+      }, 1000); // Small delay to let the manual creation complete
+      
+      // Clear the URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Clear localStorage
+      localStorage.removeItem('klyro_payment_tier');
+      localStorage.removeItem('klyro_payment_timestamp');
+      localStorage.removeItem('klyro_payment_user_email');
+      
+      console.log('🧹 Cleared localStorage and URL params');
+      
+      // Auto-hide after 8 seconds (longer for professional message)
+      setTimeout(() => {
+        setShowSubscriptionSuccess(false);
+      }, 8000);
+    } else {
+      console.log('🔍 No success parameter found');
+    }
+  }, [user?.id, subscriptionHook]);
+
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-white'} flex`}>
       {/* Sidebar */}
@@ -1921,6 +2071,52 @@ export default function Dashboard() {
             </div>
           </div>
         </header>
+        
+        {/* Subscription Success Banner */}
+        <AnimatePresence>
+          {showSubscriptionSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              className="bg-white border border-green-200 shadow-sm p-6 mx-8 mt-4 mb-4 rounded-lg"
+            >
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-4 flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    Subscription Activated
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-2">
+                    {subscriptionSuccessMessage}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    You now have access to all {subscriptionHook.getCurrentTier()} features. 
+                    Your monthly usage limits have been refreshed.
+                  </p>
+                </div>
+                <div className="ml-4 flex-shrink-0">
+                  <button
+                    onClick={() => setShowSubscriptionSuccess(false)}
+                    className="inline-flex rounded-md p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                  >
+                    <span className="sr-only">Dismiss</span>
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         <div className={`p-8 ${darkMode ? 'bg-gray-900' : 'bg-white'} min-h-screen`}>
           {renderContent()}
         </div>

@@ -218,6 +218,15 @@ export const useSubscription = () => {
     return true;
   };
 
+  // Refresh subscription data (useful after payment)
+  const refreshSubscription = async () => {
+    if (user) {
+      setLoading(true);
+      await fetchSubscription();
+      await fetchUsage();
+    }
+  };
+
   return {
     subscription,
     loading,
@@ -228,6 +237,7 @@ export const useSubscription = () => {
     getRemainingUsage,
     incrementUsage,
     isSubscriptionActive,
+    refreshSubscription,
     refresh: () => {
       fetchSubscription();
       fetchUsage();

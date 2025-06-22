@@ -84,6 +84,14 @@ export async function POST(request: NextRequest) {
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   console.log('🔄 Processing checkout completion:', session.id);
+  console.log('💰 Session amount:', session.amount_total);
+  console.log('📧 Customer email:', session.customer_email || session.customer_details?.email);
+  console.log('🔗 Session data:', {
+    customer: session.customer,
+    subscription: session.subscription,
+    payment_status: session.payment_status,
+    mode: session.mode
+  });
   
   try {
     const supabase = await createClient();
@@ -96,7 +104,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       return;
     }
 
-    // Find user by email
+    console.log(`📧 Processing payment for email: ${customerEmail}`);
+
+    // Find user by email - using correct Supabase method
     const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
     
     if (authError) {
@@ -104,44 +114,42 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       return;
     }
 
-    let user = authUsers.users.find(u => u.email === customerEmail);
+    let user = authUsers.users.find((u: any) => u.email === customerEmail);
     
-    // If user doesn't exist, create a new account
+    // If user doesn't exist, they should have signed up first in our new flow
+    // But handle the case anyway for safety
     if (!user) {
-      console.log(`🆕 Creating new user account for: ${customerEmail}`);
+      console.log(`❌ No user found for email: ${customerEmail}`);
+      console.log('⚠️  This shouldn\'t happen in the new flow - user should exist before payment');
       
-      // Generate a temporary password (user will need to reset it)
+      // Create account as fallback (though this shouldn't happen now)
       const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
       
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email: customerEmail,
         password: tempPassword,
-        email_confirm: true, // Auto-confirm since they paid
+        email_confirm: true,
         user_metadata: {
           full_name: session.customer_details?.name || customerEmail.split('@')[0],
-          created_via: 'stripe_payment',
+          created_via: 'stripe_payment_fallback',
           payment_session_id: session.id
         }
       });
       
       if (createError) {
-        console.error('❌ Error creating user:', createError);
+        console.error('❌ Error creating fallback user:', createError);
         return;
       }
       
-      if (newUser.user) {
-        user = newUser.user;
-        console.log(`✅ Created new user: ${user.email} (${user.id})`);
-      } else {
-        console.error('❌ Failed to create user - no user object returned');
-        return;
-      }
-      
-      // TODO: Send welcome email with password reset link
-      // You can implement this later with your email service
-      
+      user = newUser.user;
+      console.log(`✅ Created fallback user: ${user?.email} (${user?.id})`);
     } else {
       console.log(`💡 Found existing user: ${user.email} (${user.id})`);
+    }
+
+    if (!user) {
+      console.error('❌ No user available after lookup/creation');
+      return;
     }
 
     // Determine subscription tier from the session
@@ -152,17 +160,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
       const priceId = subscription.items.data[0]?.price.id;
       tier = getTierFromPriceId(priceId);
+      console.log(`🔍 Subscription found - Price ID: ${priceId}, Tier: ${tier}`);
       
       // If tier is still 'free', try to determine from amount
       if (tier === 'free' && session.amount_total) {
         tier = getTierFromAmount(session.amount_total);
+        console.log(`🔍 Fallback to amount-based tier: ${tier}`);
       }
     } else if (session.amount_total) {
       // For one-time payments or payment links, determine tier from amount
       tier = getTierFromAmount(session.amount_total);
+      console.log(`🔍 One-time payment - Amount: ${session.amount_total}, Tier: ${tier}`);
     }
 
-    console.log(`💡 Determined tier: ${tier} for user: ${user.email}`);
+    console.log(`💡 Final determined tier: ${tier} for user: ${user.email} (amount: ${session.amount_total})`);
 
     // Create or update user subscription
     const subscriptionData = {
@@ -177,6 +188,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       updated_at: new Date().toISOString(),
     };
 
+    console.log('💾 Attempting to save subscription data:', subscriptionData);
+
     const { error: upsertError } = await supabase
       .from('user_subscriptions')
       .upsert(subscriptionData, {
@@ -185,8 +198,33 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
     if (upsertError) {
       console.error('❌ Error updating subscription:', upsertError);
+      console.error('❌ Subscription data that failed:', subscriptionData);
     } else {
       console.log(`✅ Subscription activated for user ${user.email}, tier: ${tier}`);
+      
+      // Initialize user usage for the new subscription period
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      
+      // Reset usage counts for the new subscription period
+      const usageResets = [
+        { user_id: user.id, feature_type: 'transactions', month_year: currentMonth, usage_count: 0 },
+        { user_id: user.id, feature_type: 'receipts', month_year: currentMonth, usage_count: 0 },
+        { user_id: user.id, feature_type: 'ai_chats', month_year: currentMonth, usage_count: 0 }
+      ];
+
+      for (const usageData of usageResets) {
+        const { error: usageError } = await supabase
+          .from('user_usage')
+          .upsert(usageData, {
+            onConflict: 'user_id,feature_type,month_year'
+          });
+          
+        if (usageError) {
+          console.error('❌ Error resetting usage for', usageData.feature_type, ':', usageError);
+        }
+      }
+      
+      console.log(`✅ Usage counts reset for user ${user.email} for month ${currentMonth}`);
     }
 
   } catch (error) {

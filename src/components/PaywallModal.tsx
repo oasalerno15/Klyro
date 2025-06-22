@@ -18,6 +18,9 @@ const FEATURE_DESCRIPTIONS = {
   upgrade: 'Premium features'
 };
 
+// Payment links - These need to be updated in Stripe dashboard to redirect to:
+// Success URL: https://www.kly-ro.xyz/success-{tier} (e.g., /success-starter)
+// Cancel URL: https://www.kly-ro.xyz/?canceled=true
 const PAYMENT_LINKS = {
   starter: 'https://buy.stripe.com/test_00w4gy5ikd3j4cx8PmcbC00',
   pro: 'https://buy.stripe.com/test_8x27sK124fbr4cx4z6cbC01',
