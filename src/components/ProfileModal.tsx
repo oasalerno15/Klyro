@@ -386,7 +386,7 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                         }}
                       ></div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 mt-4">
+                    <div className="grid grid-cols-2 gap-2 mt-4">
                       <button 
                         onClick={() => setShowPaywall(true)}
                         className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}
@@ -398,15 +398,6 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                         className={`px-3 py-2 rounded-lg border ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'border-gray-300 hover:bg-gray-50 text-gray-700'} text-xs font-medium transition-colors`}
                       >
                         Billing
-                      </button>
-                      <button 
-                        onClick={() => {
-                          console.log('🔄 Manual refresh triggered');
-                          refresh();
-                        }}
-                        className={`px-3 py-2 rounded-lg border ${darkMode ? 'border-blue-600 hover:bg-blue-700 text-blue-300' : 'border-blue-300 hover:bg-blue-50 text-blue-700'} text-xs font-medium transition-colors`}
-                      >
-                        Refresh
                       </button>
                     </div>
                   </div>

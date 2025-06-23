@@ -1852,7 +1852,7 @@ export default function Dashboard() {
     console.log('🔍 Success parameter:', success);
     console.log('🔍 All URL params:', Object.fromEntries(urlParams.entries()));
     
-    // Check localStorage
+    // Check localStorage for payment data
     const paymentTier = localStorage.getItem('klyro_payment_tier');
     const paymentTimestamp = localStorage.getItem('klyro_payment_timestamp');
     const paymentEmail = localStorage.getItem('klyro_payment_user_email');
@@ -1864,24 +1864,21 @@ export default function Dashboard() {
       user: user?.email
     });
     
-    if (success === 'true') {
-      console.log('✅ Success parameter detected!');
+    // Only process if there's both a success parameter AND payment data in localStorage
+    // This prevents creating subscriptions for users who just signed in with Google
+    if (success === 'true' && paymentTier && paymentTimestamp) {
+      console.log('✅ Valid payment success detected!');
       
-      const tierName = paymentTier ? paymentTier.charAt(0).toUpperCase() + paymentTier.slice(1) : 'Premium';
+      const tierName = paymentTier.charAt(0).toUpperCase() + paymentTier.slice(1);
       
       console.log('🔍 Tier name for message:', tierName);
       
-      setSubscriptionSuccessMessage(`Welcome to Klyro ${tierName}. Your subscription is now active and ready to use.`);
+      setSubscriptionSuccessMessage(`Welcome to Klyro ${tierName}. Your subscription is now active with full access to premium features.`);
       setShowSubscriptionSuccess(true);
       
-      // Create manual subscription record (fallback for when webhook isn't set up)
-      if (paymentTier) {
-        console.log('🔧 About to create manual subscription for tier:', paymentTier);
-        createManualSubscription(paymentTier);
-      } else {
-        console.log('⚠️ No payment tier found in localStorage - creating default premium subscription');
-        createManualSubscription('premium');
-      }
+      // Create subscription record for confirmed payment
+      console.log('🔧 Creating subscription for confirmed payment:', paymentTier);
+      createManualSubscription(paymentTier);
       
       // Refresh subscription data to show updated tier
       setTimeout(() => {
@@ -1891,7 +1888,7 @@ export default function Dashboard() {
         } else {
           console.log('❌ refreshSubscription function not available');
         }
-      }, 1000); // Small delay to let the manual creation complete
+      }, 1000);
       
       // Clear the URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -1903,12 +1900,16 @@ export default function Dashboard() {
       
       console.log('🧹 Cleared localStorage and URL params');
       
-      // Auto-hide after 8 seconds (longer for professional message)
+      // Auto-hide after 10 seconds
       setTimeout(() => {
         setShowSubscriptionSuccess(false);
-      }, 8000);
+      }, 10000);
+    } else if (success === 'true') {
+      console.log('⚠️ Success parameter found but no payment data - likely a Google sign-in redirect');
+      // Just clear the URL parameter, don't create subscription
+      window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      console.log('🔍 No success parameter found');
+      console.log('🔍 No payment success detected - user will remain on free plan');
     }
   }, [user?.id, subscriptionHook]);
 
@@ -2060,42 +2061,91 @@ export default function Dashboard() {
         <AnimatePresence>
           {showSubscriptionSuccess && (
             <motion.div
-              initial={{ opacity: 0, y: -50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -50 }}
-              className="bg-white border border-green-200 shadow-sm p-6 mx-8 mt-4 mb-4 rounded-lg"
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 400, 
+                damping: 25,
+                duration: 0.6
+              }}
+              className="relative mx-8 mt-6 mb-4 overflow-hidden"
             >
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
+              {/* Background with gradient and blur effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl"></div>
+              <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-2xl border border-emerald-200/50 shadow-lg"></div>
+              
+              {/* Content */}
+              <div className="relative p-8">
+                <div className="flex items-start space-x-6">
+                  {/* Professional Icon */}
+                  <div className="flex-shrink-0">
+                    <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <svg className="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  {/* Text Content */}
+                  <div className="flex-1 min-w-0">
+                    <motion.h3 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-xl font-semibold text-gray-900 mb-2"
+                    >
+                      Subscription Activated
+                    </motion.h3>
+                    <motion.p 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="text-gray-700 mb-3 leading-relaxed"
+                    >
+                      {subscriptionSuccessMessage}
+                    </motion.p>
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="flex items-center space-x-4 text-sm text-gray-600"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                        <span>Full feature access enabled</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                        <span>Usage limits refreshed</span>
+                      </div>
+                    </motion.div>
+                  </div>
+                  
+                  {/* Close Button */}
+                  <div className="flex-shrink-0">
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.4 }}
+                      onClick={() => setShowSubscriptionSuccess(false)}
+                      className="p-2 rounded-xl hover:bg-white/60 transition-all duration-200 group"
+                    >
+                      <svg className="h-5 w-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </motion.button>
                   </div>
                 </div>
-                <div className="ml-4 flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                    Subscription Activated
-                  </h3>
-                  <p className="text-sm text-gray-700 mb-2">
-                    {subscriptionSuccessMessage}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    You now have access to all {subscriptionHook.getCurrentTier()} features. 
-                    Your monthly usage limits have been refreshed.
-                  </p>
-                </div>
-                <div className="ml-4 flex-shrink-0">
-                  <button
-                    onClick={() => setShowSubscriptionSuccess(false)}
-                    className="inline-flex rounded-md p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                  >
-                    <span className="sr-only">Dismiss</span>
-                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
+                
+                {/* Progress bar animation */}
+                <motion.div 
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ delay: 0.5, duration: 1.5, ease: "easeOut" }}
+                  className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-emerald-500 to-green-500 origin-left w-full"
+                ></motion.div>
               </div>
             </motion.div>
           )}
