@@ -670,61 +670,71 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[70] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
             onClick={() => setShowCancelModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 30 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 30 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200"
+              className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="bg-red-50 border-b border-red-200 px-6 py-4">
+              <div className="px-6 py-5 border-b border-gray-100">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Cancel Subscription</h3>
-                    <p className="text-sm text-gray-600">This action will cancel your {currentTier} plan</p>
+                    <p className="text-sm text-gray-500">This will cancel your {currentTier} plan</p>
                   </div>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="px-6 py-4">
-                <div className="space-y-4">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h4 className="font-medium text-yellow-800 mb-2">What happens when you cancel:</h4>
-                    <ul className="text-sm text-yellow-700 space-y-1">
-                      <li>• Your subscription will be cancelled immediately</li>
-                      <li>• You'll keep premium access until {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'the end of your billing period'}</li>
-                      <li>• No more charges will be made to your card</li>
-                      <li>• You can resubscribe anytime to regain full access</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-800 mb-2">Consider staying with us:</h4>
-                    <p className="text-sm text-blue-700">
-                      You're getting great value with unlimited transactions, AI insights, and premium features. 
-                      Are you sure you want to cancel?
-                    </p>
-                  </div>
+              <div className="px-6 py-5 space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3">What happens when you cancel:</h4>
+                  <ul className="text-sm text-gray-600 space-y-2">
+                    <li className="flex items-start">
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                      Your subscription will be cancelled immediately
+                    </li>
+                    <li className="flex items-start">
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                      You'll keep premium access until {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'the end of your billing period'}
+                    </li>
+                    <li className="flex items-start">
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                      No more charges will be made to your card
+                    </li>
+                    <li className="flex items-start">
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                      You can resubscribe anytime to regain full access
+                    </li>
+                  </ul>
+                </div>
+                
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                  <h4 className="font-medium text-blue-900 mb-2">Consider staying with us</h4>
+                  <p className="text-sm text-blue-700">
+                    You're getting great value with your current plan features. 
+                    Are you sure you want to cancel?
+                  </p>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
                 <div className="flex space-x-3 justify-end">
                   <button
                     onClick={() => setShowCancelModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     disabled={cancelLoading}
                   >
                     Keep My Plan
@@ -732,9 +742,9 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                   <button
                     onClick={handleCancelSubscription}
                     disabled={cancelLoading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {cancelLoading ? 'Cancelling...' : 'Yes, Cancel Subscription'}
+                    {cancelLoading ? 'Cancelling...' : 'Cancel Subscription'}
                   </button>
                 </div>
               </div>

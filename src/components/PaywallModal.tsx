@@ -118,9 +118,9 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
             <X className="w-5 h-5 text-gray-500" />
           </button>
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Upgrade Your Plan</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Start Your 7-Day Free Trial</h2>
             <p className="text-gray-600">
-              Unlock {featureDescription} and more with a paid plan
+              Try {featureDescription} and all premium features risk-free. Cancel anytime.
             </p>
           </div>
         </div>
@@ -153,8 +153,9 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
 
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
-                  <div className="text-3xl font-bold text-gray-900 mb-1">${plan.price}</div>
-                  <p className="text-gray-500 text-sm">per month</p>
+                  <div className="text-lg font-bold text-green-600 mb-1">7 Days Free</div>
+                  <div className="text-2xl font-bold text-gray-900 mb-1">then ${plan.price}</div>
+                  <p className="text-gray-500 text-sm">per month • Cancel anytime</p>
                 </div>
 
                 <ul className="space-y-2 mb-6 text-sm">
@@ -173,7 +174,7 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
                   )}
                 </ul>
 
-                <button
+                <motion.button
                   onClick={() => handlePayment(planKey as keyof typeof PAYMENT_LINKS)}
                   className={`w-full py-2.5 px-4 rounded-lg font-semibold text-sm transition-all duration-200 ${
                     plan.popular 
@@ -181,8 +182,8 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200'
                   }`}
                 >
-                  Get Started
-                </button>
+                  Start 7-Day Free Trial
+                </motion.button>
               </motion.div>
             ))}
           </div>

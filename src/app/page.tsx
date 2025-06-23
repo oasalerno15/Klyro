@@ -352,29 +352,62 @@ export default function Home() {
       {showSuccessMessage && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-4">
           <motion.div 
-            className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md text-center"
+            className="bg-white rounded-xl shadow-xl p-8 w-full max-w-lg text-center"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
-            <div className="mb-6">
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+            <div className="mb-8">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-full flex items-center justify-center mb-6 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 animate-pulse"></div>
+                <motion.svg 
+                  className="w-8 h-8 text-emerald-600 relative z-10" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </motion.svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
-              <p className="text-gray-600">
-                Thank you for subscribing to Klyro. Please wait while we redirect you to your dashboard...
-              </p>
+              <motion.h2 
+                className="text-2xl font-bold text-gray-900 mb-3"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                Welcome to Klyro
+              </motion.h2>
+              <motion.p 
+                className="text-gray-600 leading-relaxed"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                Your subscription has been activated successfully. We're redirecting you to your dashboard where you can start tracking your financial wellness journey.
+              </motion.p>
             </div>
             
-            <div className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span className="text-gray-600">Redirecting...</span>
+            <div className="flex items-center justify-center space-x-3">
+              <motion.div
+                className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              />
+              <span className="text-gray-600 font-medium">Setting up your account...</span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="mt-6 w-full bg-gray-200 rounded-full h-1 overflow-hidden">
+              <motion.div 
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full"
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 3, ease: "easeInOut" }}
+              />
             </div>
           </motion.div>
         </div>
@@ -1078,8 +1111,8 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div variants={fadeInUp} className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Plan</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">Start your journey to financial wellness with the plan that fits your needs</p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Start Your 7-Day Free Trial</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">Try all premium features risk-free. No credit card required. Cancel anytime.</p>
           </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -1091,7 +1124,8 @@ export default function Home() {
               <div className="p-8 flex flex-col flex-grow">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Starter</h3>
-                  <div className="text-4xl font-bold text-gray-900 mb-2">$9.99</div>
+                  <div className="text-lg font-bold text-green-600 mb-1">7 Days Free</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">then $9.99</div>
                   <p className="text-gray-500">per month</p>
                 </div>
                 <ul className="space-y-4 mb-8 flex-grow">
@@ -1132,7 +1166,7 @@ export default function Home() {
                   onClick={() => handlePayment('starter')}
                   className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto"
                 >
-                  Get Started
+                  Start 7-Day Free Trial
                 </motion.button>
               </div>
             </motion.div>
@@ -1148,7 +1182,8 @@ export default function Home() {
               <div className="p-8 pt-12 flex flex-col flex-grow">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
-                  <div className="text-4xl font-bold text-gray-900 mb-2">$24.99</div>
+                  <div className="text-lg font-bold text-green-600 mb-1">7 Days Free</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">then $24.99</div>
                   <p className="text-gray-500">per month</p>
                 </div>
                 <ul className="space-y-4 mb-8 flex-grow">
@@ -1189,7 +1224,7 @@ export default function Home() {
                   onClick={() => handlePayment('pro')}
                   className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto"
                 >
-                  Get Started
+                  Start 7-Day Free Trial
                 </motion.button>
               </div>
             </motion.div>
@@ -1202,7 +1237,8 @@ export default function Home() {
               <div className="p-8 flex flex-col flex-grow">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Premium</h3>
-                  <div className="text-4xl font-bold text-gray-900 mb-2">$49.99</div>
+                  <div className="text-lg font-bold text-green-600 mb-1">7 Days Free</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-2">then $49.99</div>
                   <p className="text-gray-500">per month</p>
                 </div>
                 <ul className="space-y-4 mb-8 flex-grow">
@@ -1243,7 +1279,7 @@ export default function Home() {
                   onClick={() => handlePayment('premium')}
                   className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-auto"
                 >
-                  Get Started
+                  Start 7-Day Free Trial
                 </motion.button>
               </div>
             </motion.div>
@@ -1251,8 +1287,8 @@ export default function Home() {
           
           {/* Additional info */}
           <motion.div variants={fadeInUp} className="text-center mt-12">
-            <p className="text-gray-600 mb-4">All plans include a 14-day free trial. No credit card required.</p>
-            <p className="text-sm text-gray-500">Cancel anytime. Upgrade or downgrade your plan as needed.</p>
+            <p className="text-gray-600 mb-4">All plans include a 7-day free trial. Cancel anytime during trial.</p>
+            <p className="text-sm text-gray-500">No payment required for trial. Upgrade or downgrade your plan as needed.</p>
           </motion.div>
         </div>
       </motion.section>
