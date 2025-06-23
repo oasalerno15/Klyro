@@ -143,6 +143,31 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
     }
   }, [user, refresh]);
 
+  // Auto-refresh usage data every 10 seconds when modal is open
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing subscription/usage data...');
+      refresh();
+    }, 10000); // Refresh every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [user, refresh]);
+
+  // Also refresh when window gains focus (user returns to tab)
+  useEffect(() => {
+    if (!user) return;
+    
+    const handleFocus = () => {
+      console.log('🔄 Window focused - refreshing subscription data...');
+      refresh();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, refresh]);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')

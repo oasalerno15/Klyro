@@ -102,31 +102,44 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
   const featureDescription = FEATURE_DESCRIPTIONS[feature as keyof typeof FEATURE_DESCRIPTIONS] || 'This premium feature';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(254, 252, 232, 0.95)' }}>
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden relative"
+        style={{ backgroundColor: '#fefce8' }}
       >
+        {/* Logo in top right */}
+        <div className="absolute top-6 right-6 z-10">
+          <div className="flex items-center space-x-2">
+            <img 
+              src="https://i.imgur.com/yk9L9Nx.png" 
+              alt="Klyro Logo" 
+              className="w-8 h-8"
+            />
+            <span className="text-lg font-bold text-gray-800">Klyro</span>
+          </div>
+        </div>
+
         {/* Header */}
-        <div className="relative p-6 border-b border-gray-200">
+        <div className="relative p-6 border-b border-gray-200" style={{ backgroundColor: '#fefce8' }}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="absolute top-4 left-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Start Your 7-Day Free Trial</h2>
-            <p className="text-gray-600">
+          <div className="text-center pt-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Start Your 7-Day Free Trial</h2>
+            <p className="text-gray-600 text-lg">
               Try {featureDescription} and all premium features risk-free. Cancel anytime.
             </p>
           </div>
         </div>
 
         {/* Pricing Cards */}
-        <div className="p-6 overflow-y-auto">
+        <div className="p-8 overflow-y-auto" style={{ backgroundColor: '#fefce8' }}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {Object.entries(PLAN_FEATURES).map(([planKey, plan], index) => (
               <motion.div
@@ -137,15 +150,15 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
                   y: 0,
                   transition: { delay: index * 0.1 }
                 }}
-                className={`relative bg-white rounded-xl border-2 p-6 ${
+                className={`relative bg-white rounded-xl border-2 p-6 shadow-lg ${
                   plan.popular 
-                    ? 'border-blue-500 shadow-lg' 
+                    ? 'border-gray-800 shadow-xl transform scale-105' 
                     : 'border-gray-200 hover:border-gray-300'
-                } transition-all duration-200 hover:shadow-md`}
+                } transition-all duration-200 hover:shadow-xl`}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    <span className="bg-gray-800 text-white px-4 py-1.5 rounded-full text-sm font-medium shadow-lg">
                       Most Popular
                     </span>
                   </div>
@@ -158,17 +171,17 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
                   <p className="text-gray-500 text-sm">per month • Cancel anytime</p>
                 </div>
 
-                <ul className="space-y-2 mb-6 text-sm">
+                <ul className="space-y-3 mb-8 text-sm">
                   {plan.features.slice(0, 4).map((feature, idx) => (
                     <li key={idx} className="flex items-center text-gray-700">
-                      <svg className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-4 h-4 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                       {feature}
                     </li>
                   ))}
                   {plan.features.length > 4 && (
-                    <li className="text-gray-500 text-xs pl-6">
+                    <li className="text-gray-500 text-xs pl-7">
                       +{plan.features.length - 4} more features
                     </li>
                   )}
@@ -176,11 +189,13 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
 
                 <motion.button
                   onClick={() => handlePayment(planKey as keyof typeof PAYMENT_LINKS)}
-                  className={`w-full py-2.5 px-4 rounded-lg font-semibold text-sm transition-all duration-200 ${
+                  className={`w-full py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-200 ${
                     plan.popular 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
+                      ? 'bg-gray-800 hover:bg-gray-900 text-white shadow-lg hover:shadow-xl'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200'
                   }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Start 7-Day Free Trial
                 </motion.button>

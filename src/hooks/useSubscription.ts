@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from '@/utils/stripe-constants';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient();
 
-export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'premium';
+export type { SubscriptionTier };
 
 interface UserSubscription {
   id: string;

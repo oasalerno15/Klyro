@@ -7,7 +7,7 @@ export const SUBSCRIPTION_LIMITS = {
   free: {
     transactions: 5,
     receipts: 2,
-    ai_chats: 0,
+    aiChats: 0,
     calendar: false,
     advanced_insights: false,
     custom_categories: false,
@@ -16,7 +16,7 @@ export const SUBSCRIPTION_LIMITS = {
   starter: {
     transactions: 20,
     receipts: 20,
-    ai_chats: 10,
+    aiChats: 10,
     calendar: true,
     advanced_insights: false,
     custom_categories: false,
@@ -25,7 +25,7 @@ export const SUBSCRIPTION_LIMITS = {
   pro: {
     transactions: 50,
     receipts: 50,
-    ai_chats: 100,
+    aiChats: 100,
     calendar: true,
     advanced_insights: true,
     custom_categories: true,
@@ -34,7 +34,7 @@ export const SUBSCRIPTION_LIMITS = {
   premium: {
     transactions: 500,
     receipts: 500,
-    ai_chats: 500,
+    aiChats: 500,
     calendar: true,
     advanced_insights: true,
     custom_categories: true,

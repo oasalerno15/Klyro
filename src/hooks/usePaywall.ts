@@ -57,8 +57,8 @@ export function usePaywall() {
         break;
 
       case 'ai_chat':
-        const canUseAI = limits.ai_chats === -1 || usage.aiChats < limits.ai_chats;
-        console.log(`🤖 AI Chat check: ${usage.aiChats}/${limits.ai_chats} - ${canUseAI ? 'ALLOWED' : 'BLOCKED'}`);
+        const canUseAI = limits.aiChats === -1 || usage.aiChats < limits.aiChats;
+        console.log(`🤖 AI Chat check: ${usage.aiChats}/${limits.aiChats} - ${canUseAI ? 'ALLOWED' : 'BLOCKED'}`);
         if (!canUseAI) {
           showPaywall(feature);
           return false;
@@ -105,7 +105,7 @@ export function usePaywall() {
       case 'transaction': 
         return limits.transactions === 0;
       case 'ai_chat':
-        return limits.ai_chats === 0;
+        return limits.aiChats === 0;
       default:
         return !limits[feature as keyof typeof limits];
     }
@@ -120,7 +120,7 @@ export function usePaywall() {
       case 'transaction':
         return limits.transactions === -1 ? -1 : Math.max(0, limits.transactions - usage.transactions);
       case 'ai_chat':
-        return limits.ai_chats === -1 ? -1 : Math.max(0, limits.ai_chats - usage.aiChats);
+        return limits.aiChats === -1 ? -1 : Math.max(0, limits.aiChats - usage.aiChats);
       default:
         return null;
     }
@@ -143,11 +143,11 @@ export function usePaywall() {
         remaining: getRemainingUsage('receipt'),
         canUse: limits.receipts === -1 || usage.receipts < limits.receipts
       },
-      ai_chats: {
+      aiChats: {
         used: usage.aiChats,
-        limit: limits.ai_chats,
+        limit: limits.aiChats,
         remaining: getRemainingUsage('ai_chat'),
-        canUse: limits.ai_chats === -1 || usage.aiChats < limits.ai_chats
+        canUse: limits.aiChats === -1 || usage.aiChats < limits.aiChats
       }
     };
   };
