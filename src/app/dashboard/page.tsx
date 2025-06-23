@@ -2129,7 +2129,7 @@ export default function Dashboard() {
       <AnimatePresence>
         {showUpgradePrompt && (
           <UpgradePrompt
-            feature={upgradeReason}
+            feature="upgrade"
             currentTier={usageData?.subscription?.subscription_tier || 'free'}
             onClose={() => setShowUpgradePrompt(false)}
             userId={user?.id}

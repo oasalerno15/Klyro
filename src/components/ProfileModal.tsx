@@ -623,41 +623,6 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                     >
                       Close
                     </button>
-                    <button
-                      onClick={async () => {
-                        console.log('🔍 MANUAL DEBUG - ProfileModal Data:');
-                        console.log('📊 Current user:', user?.id);
-                        console.log('📊 Subscription from hook:', subscription);
-                        console.log('📊 Current tier:', getCurrentTier());
-                        console.log('📊 Usage:', usage);
-                        console.log('📊 Limits:', limits);
-                        
-                        // Direct DB check
-                        const supabase = createClient();
-                        const { data: dbSub, error } = await supabase
-                          .from('user_subscriptions')
-                          .select('*')
-                          .eq('user_id', user?.id);
-                        console.log('📊 Direct DB subscription:', dbSub);
-                        console.log('❌ Direct DB error:', error);
-                        
-                        // Force refresh
-                        await refresh();
-                        console.log('🔄 Forced refresh completed');
-                      }}
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
-                    >
-                      DEBUG
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowBilling(false);
-                        setShowPaywall(true);
-                      }}
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 transition-colors"
-                    >
-                      Upgrade Plan
-                    </button>
                   </div>
                 </div>
               </div>
