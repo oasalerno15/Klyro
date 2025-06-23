@@ -314,7 +314,7 @@ export default function Dashboard() {
   const [spendingEntryCount, setSpendingEntryCount] = useState<number | null>(null);
   const [showReceiptUpload, setShowReceiptUpload] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
-  const [upgradeReason, setUpgradeReason] = useState<string>('');
+  const [upgradeReason, setUpgradeReason] = useState<"transaction" | "receipt" | "ai_chat" | "upgrade">('upgrade');
   const [tablesExist, setTablesExist] = useState(true);
   const [isTransactionOverviewExpanded, setIsTransactionOverviewExpanded] = useState(false);
   const [archiveFilter, setArchiveFilter] = useState('all'); // 'all' or 'archived'
@@ -1622,10 +1622,15 @@ export default function Dashboard() {
   // Fetch transactions from Supabase
   useEffect(() => {
     const fetchTransactionsFromSupabase = async () => {
-      if (!user) return;
+      if (!user?.id || transactionsLoading) return;
       
       try {
         setTransactionsLoading(true);
+        
+        // Add a timeout to prevent infinite loops
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout')), 10000)
+        );
         
         // Start with the most basic fields that should always exist
         let data: any[] = [];
@@ -1634,14 +1639,17 @@ export default function Dashboard() {
         // Try minimal query first (core fields only)
         try {
           console.log('🔍 Trying minimal query...');
-          const minimalQuery = await supabase
+          const minimalQueryPromise = supabase
             .from('transactions')
             .select('id, user_id, name, amount, date, category, created_at, updated_at')
             .eq('user_id', user.id)
             .order('date', { ascending: false });
             
+          const minimalQuery = await Promise.race([minimalQueryPromise, timeoutPromise]) as any;
+            
           if (minimalQuery.error) {
             console.error('❌ Minimal query failed:', minimalQuery.error.message);
+            throw new Error('Database connection failed');
           } else {
             console.log('✅ Minimal query successful');
             data = minimalQuery.data || [];
@@ -1649,42 +1657,17 @@ export default function Dashboard() {
           }
         } catch (minimalError) {
           console.error('❌ Minimal query exception:', minimalError);
+          // Don't retry on connection errors, just set empty state
+          setTransactions([]);
+          setReceiptTransactions([]);
+          setUnclassifiedTransactions([]);
+          setTransactionsLoading(false);
+          return;
         }
         
-        if (!querySuccess) {
-          // If even minimal query fails, try with just the absolute essentials
-          try {
-            console.log('🔍 Trying ultra-minimal query...');
-            const ultraMinimalQuery = await supabase
-              .from('transactions')
-              .select('id, name, amount, date')
-              .eq('user_id', user.id)
-              .order('date', { ascending: false });
-              
-            if (ultraMinimalQuery.error) {
-              console.error('❌ Ultra-minimal query failed:', ultraMinimalQuery.error.message);
-              setTransactionsLoading(false);
-              setTransactions([]);
-              setReceiptTransactions([]);
-              setUnclassifiedTransactions([]);
-              return;
-            } else {
-              console.log('✅ Ultra-minimal query successful');
-              data = ultraMinimalQuery.data || [];
-              querySuccess = true;
-            }
-          } catch (ultraMinimalError) {
-            console.error('❌ Ultra-minimal query exception:', ultraMinimalError);
-            setTransactionsLoading(false);
-            setTransactions([]);
-            setReceiptTransactions([]);
-            setUnclassifiedTransactions([]);
-            return;
-          }
-        }
-        
-        // Try to add receipt-specific fields if they exist
-        if (querySuccess) {
+        // Only try extended queries if basic query succeeded
+        if (querySuccess && data.length > 0) {
+          // Try to add receipt-specific fields if they exist
           try {
             console.log('🔍 Trying extended query (receipt fields)...');
             const extendedQuery = await supabase
@@ -1702,10 +1685,8 @@ export default function Dashboard() {
           } catch (extendedError) {
             console.warn('⚠️ Receipt fields not available, using minimal data (exception):', extendedError);
           }
-        }
-        
-        // Try to add AI fields if they exist
-        if (querySuccess) {
+
+          // Try to add AI fields if they exist
           try {
             console.log('🔍 Trying full query (AI fields)...');
             const fullQuery = await supabase
@@ -1761,19 +1742,22 @@ export default function Dashboard() {
           setUnclassifiedTransactions([]);
         }
         
-        setTransactionsLoading(false);
       } catch (error) {
         // Silent error handling for unexpected errors
         console.warn('❌ Unexpected error fetching transactions:', error);
-        setTransactionsLoading(false);
         setTransactions([]);
         setReceiptTransactions([]);
         setUnclassifiedTransactions([]);
+      } finally {
+        setTransactionsLoading(false);
       }
     };
     
-    fetchTransactionsFromSupabase();
-  }, [user, supabase]);
+    // Only fetch once per user change
+    if (user?.id && !transactionsLoading) {
+      fetchTransactionsFromSupabase();
+    }
+  }, [user?.id]); // Remove supabase from dependencies to prevent infinite loops
 
   // Fetch AI insights when transactions change
   useEffect(() => {
