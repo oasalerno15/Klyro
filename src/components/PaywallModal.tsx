@@ -108,25 +108,21 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden relative"
-        style={{ backgroundColor: '#fefce8' }}
       >
-        {/* Logo in top right */}
-        <div className="absolute top-6 right-6 z-10">
-          <div className="flex items-center space-x-2">
-            <img 
-              src="https://i.imgur.com/yk9L9Nx.png" 
-              alt="Klyro Logo" 
-              className="w-8 h-8"
-            />
-            <span className="text-lg font-bold text-gray-800">Klyro</span>
+        {/* Logo in top left */}
+        <div className="absolute top-6 left-6 z-10">
+          <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+            <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L4 7v10l8 5 8-5V7l-8-5zM6 8.5L12 5l6 3.5v7L12 19l-6-3.5v-7z"/>
+            </svg>
           </div>
         </div>
 
         {/* Header */}
-        <div className="relative p-6 border-b border-gray-200" style={{ backgroundColor: '#fefce8' }}>
+        <div className="relative p-6 border-b border-gray-200">
           <button
             onClick={onClose}
-            className="absolute top-4 left-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -139,7 +135,7 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
         </div>
 
         {/* Pricing Cards */}
-        <div className="p-8 overflow-y-auto" style={{ backgroundColor: '#fefce8' }}>
+        <div className="p-8 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {Object.entries(PLAN_FEATURES).map(([planKey, plan], index) => (
               <motion.div
