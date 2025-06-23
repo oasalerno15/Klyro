@@ -11,7 +11,7 @@ interface PaywallState {
 
 export function usePaywall() {
   const { user } = useAuth();
-  const { subscription, usage, loading, refreshSubscription } = useSubscription(user?.id);
+  const { subscription, usage, loading, refreshSubscription } = useSubscription();
   const [paywallState, setPaywallState] = useState<PaywallState>({
     isOpen: false,
     feature: '',
@@ -24,8 +24,14 @@ export function usePaywall() {
 
   // Check if a feature access is allowed BEFORE performing the action
   const checkFeatureAccess = (feature: string): boolean => {
-    if (!user || !subscription || !limits) {
-      console.log('❌ No user, subscription, or limits found');
+    if (!user) {
+      console.log('❌ No user found');
+      showPaywall(feature);
+      return false;
+    }
+
+    if (!limits) {
+      console.log('❌ No limits found for tier:', currentTier);
       showPaywall(feature);
       return false;
     }
@@ -51,8 +57,8 @@ export function usePaywall() {
         break;
 
       case 'ai_chat':
-        const canUseAI = limits.ai_chats === -1 || usage.ai_chats < limits.ai_chats;
-        console.log(`🤖 AI Chat check: ${usage.ai_chats}/${limits.ai_chats} - ${canUseAI ? 'ALLOWED' : 'BLOCKED'}`);
+        const canUseAI = limits.ai_chats === -1 || usage.aiChats < limits.ai_chats;
+        console.log(`🤖 AI Chat check: ${usage.aiChats}/${limits.ai_chats} - ${canUseAI ? 'ALLOWED' : 'BLOCKED'}`);
         if (!canUseAI) {
           showPaywall(feature);
           return false;
@@ -114,7 +120,7 @@ export function usePaywall() {
       case 'transaction':
         return limits.transactions === -1 ? -1 : Math.max(0, limits.transactions - usage.transactions);
       case 'ai_chat':
-        return limits.ai_chats === -1 ? -1 : Math.max(0, limits.ai_chats - usage.ai_chats);
+        return limits.ai_chats === -1 ? -1 : Math.max(0, limits.ai_chats - usage.aiChats);
       default:
         return null;
     }
@@ -138,10 +144,10 @@ export function usePaywall() {
         canUse: limits.receipts === -1 || usage.receipts < limits.receipts
       },
       ai_chats: {
-        used: usage.ai_chats,
+        used: usage.aiChats,
         limit: limits.ai_chats,
         remaining: getRemainingUsage('ai_chat'),
-        canUse: limits.ai_chats === -1 || usage.ai_chats < limits.ai_chats
+        canUse: limits.ai_chats === -1 || usage.aiChats < limits.ai_chats
       }
     };
   };
