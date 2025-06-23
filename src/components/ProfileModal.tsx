@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import PaywallModal from './PaywallModal';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface ProfileModalProps {
   user: any;
@@ -31,6 +32,24 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
   const [showPaywall, setShowPaywall] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
 
+  // Use subscription hook for actual data
+  const { 
+    subscription, 
+    loading: subscriptionLoading, 
+    usage, 
+    getCurrentTier, 
+    limits,
+    refresh
+  } = useSubscription();
+
+  const currentTier = getCurrentTier();
+
+  console.log('🔍 ProfileModal - User:', user?.id);
+  console.log('📊 ProfileModal - Subscription:', subscription);
+  console.log('🎯 ProfileModal - Current Tier:', currentTier);
+  console.log('📈 ProfileModal - Usage:', usage);
+  console.log('🎛️ ProfileModal - Limits:', limits);
+
   useEffect(() => {
     const fetchAccountData = async () => {
       if (!user?.id) return;
@@ -38,6 +57,9 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
       const supabase = createClient();
       
       try {
+        // Refresh subscription data first
+        await refresh();
+        
         // Fetch transaction stats
         const { data: transactions, error: txError } = await supabase
           .from('transactions')
@@ -96,6 +118,28 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
 
     fetchAccountData();
   }, [user]);
+
+  // Refresh subscription data when modal opens
+  useEffect(() => {
+    if (user) {
+      refresh();
+      
+      // Direct database check for debugging
+      const checkSubscriptionDirectly = async () => {
+        const supabase = createClient();
+        console.log('🔍 Direct DB check for user:', user.id);
+        
+        const { data, error } = await supabase
+          .from('user_subscriptions')
+          .select('*')
+          .eq('user_id', user.id);
+          
+        console.log('📊 Direct DB result:', { data, error });
+      };
+      
+      checkSubscriptionDirectly();
+    }
+  }, [user, refresh]);
 
   const getInitials = (name: string) => {
     return name
@@ -242,7 +286,9 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Plan:</span>
-                      <span className={`text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>Free</span>
+                      <span className={`text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -303,10 +349,20 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                     <div className="flex items-center justify-between">
                       <div>
                         <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>Current Plan</p>
-                        <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Free tier with basic features</p>
+                        <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {currentTier === 'free' ? 'Free tier with basic features' :
+                           currentTier === 'starter' ? 'Starter plan with essential features' :
+                           currentTier === 'pro' ? 'Pro plan with advanced features' :
+                           'Premium plan with unlimited access'}
+                        </p>
                       </div>
-                      <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
-                        Free
+                      <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${
+                        currentTier === 'free' ? (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700') :
+                        currentTier === 'starter' ? 'bg-green-100 text-green-800' :
+                        currentTier === 'pro' ? 'bg-blue-100 text-blue-800' :
+                        'bg-purple-100 text-purple-800'
+                      }`}>
+                        {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -315,27 +371,42 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                         <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Transactions processed</p>
                       </div>
                       <span className={`text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {accountStats.transactionsCount}/100
+                        {usage.transactions}/{limits.transactions === -1 ? '∞' : limits.transactions}
                       </span>
                     </div>
                     <div className={`w-full rounded-full h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
                       <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${darkMode ? 'bg-gray-800' : 'bg-gray-800'}`}
-                        style={{ width: `${Math.min((accountStats.transactionsCount / 100) * 100, 100)}%` }}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          limits.transactions === -1 ? 'bg-green-500' :
+                          usage.transactions >= limits.transactions ? 'bg-red-500' : 
+                          usage.transactions >= limits.transactions * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ 
+                          width: limits.transactions === -1 ? '20%' : `${Math.min((usage.transactions / limits.transactions) * 100, 100)}%` 
+                        }}
                       ></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mt-4">
+                    <div className="grid grid-cols-3 gap-2 mt-4">
                       <button 
                         onClick={() => setShowPaywall(true)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}
                       >
-                        Upgrade Plan
+                        Upgrade
                       </button>
                       <button 
                         onClick={() => setShowBilling(true)}
-                        className={`px-4 py-2 rounded-lg border ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'border-gray-300 hover:bg-gray-50 text-gray-700'} text-sm font-medium transition-colors`}
+                        className={`px-3 py-2 rounded-lg border ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'border-gray-300 hover:bg-gray-50 text-gray-700'} text-xs font-medium transition-colors`}
                       >
-                        View Billing
+                        Billing
+                      </button>
+                      <button 
+                        onClick={() => {
+                          console.log('🔄 Manual refresh triggered');
+                          refresh();
+                        }}
+                        className={`px-3 py-2 rounded-lg border ${darkMode ? 'border-blue-600 hover:bg-blue-700 text-blue-300' : 'border-blue-300 hover:bg-blue-50 text-blue-700'} text-xs font-medium transition-colors`}
+                      >
+                        Refresh
                       </button>
                     </div>
                   </div>
@@ -373,7 +444,7 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
             isOpen={showPaywall}
             onClose={() => setShowPaywall(false)}
             feature="upgrade"
-            currentPlan="free"
+            currentPlan={getCurrentTier()}
             onUpgrade={() => setShowPaywall(false)}
           />
         )}
@@ -434,25 +505,33 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                         </svg>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900 text-sm">Free Plan</h4>
-                        <p className="text-xs text-gray-500">$0.00/month</p>
+                        <h4 className="font-medium text-gray-900 text-sm">
+                          {getCurrentTier().charAt(0).toUpperCase() + getCurrentTier().slice(1)} Plan
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          {getCurrentTier() === 'free' ? '$0.00/month' : 
+                           getCurrentTier() === 'starter' ? '$9.99/month' :
+                           getCurrentTier() === 'pro' ? '$24.99/month' : '$49.99/month'}
+                        </p>
                       </div>
                     </div>
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
-                      Active
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      subscription?.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'
+                    }`}>
+                      {subscription?.status === 'active' ? 'Active' : 'Active'}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-200">
                     <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900">5</p>
+                      <p className="text-lg font-bold text-gray-900">{limits.transactions === -1 ? '∞' : limits.transactions}</p>
                       <p className="text-xs text-gray-500">Transactions</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900">2</p>
+                      <p className="text-lg font-bold text-gray-900">{limits.receipts === -1 ? '∞' : limits.receipts}</p>
                       <p className="text-xs text-gray-500">Receipts</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900">0</p>
+                      <p className="text-lg font-bold text-gray-900">{limits.aiChats === -1 ? '∞' : limits.aiChats}</p>
                       <p className="text-xs text-gray-500">AI Chats</p>
                     </div>
                   </div>
@@ -466,15 +545,18 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                   <div>
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-sm text-gray-700">Transactions</span>
-                      <span className="text-xs text-gray-500">{accountStats.transactionsCount}/5</span>
+                      <span className="text-xs text-gray-500">{usage.transactions}/{limits.transactions === -1 ? '∞' : limits.transactions}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
                       <div 
                         className={`h-1.5 rounded-full transition-all duration-500 ${
-                          accountStats.transactionsCount >= 5 ? 'bg-red-500' : 
-                          accountStats.transactionsCount >= 3 ? 'bg-yellow-500' : 'bg-green-500'
+                          limits.transactions === -1 ? 'bg-green-500' :
+                          usage.transactions >= limits.transactions ? 'bg-red-500' : 
+                          usage.transactions >= limits.transactions * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
                         }`}
-                        style={{ width: `${Math.min((accountStats.transactionsCount / 5) * 100, 100)}%` }}
+                        style={{ 
+                          width: limits.transactions === -1 ? '20%' : `${Math.min((usage.transactions / limits.transactions) * 100, 100)}%` 
+                        }}
                       ></div>
                     </div>
                   </div>
@@ -483,15 +565,18 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                   <div>
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-sm text-gray-700">Receipt Scans</span>
-                      <span className="text-xs text-gray-500">{accountStats.receiptsUploaded}/2</span>
+                      <span className="text-xs text-gray-500">{usage.receipts}/{limits.receipts === -1 ? '∞' : limits.receipts}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
                       <div 
                         className={`h-1.5 rounded-full transition-all duration-500 ${
-                          accountStats.receiptsUploaded >= 2 ? 'bg-red-500' : 
-                          accountStats.receiptsUploaded >= 1 ? 'bg-yellow-500' : 'bg-green-500'
+                          limits.receipts === -1 ? 'bg-green-500' :
+                          usage.receipts >= limits.receipts ? 'bg-red-500' : 
+                          usage.receipts >= limits.receipts * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
                         }`}
-                        style={{ width: `${Math.min((accountStats.receiptsUploaded / 2) * 100, 100)}%` }}
+                        style={{ 
+                          width: limits.receipts === -1 ? '20%' : `${Math.min((usage.receipts / limits.receipts) * 100, 100)}%` 
+                        }}
                       ></div>
                     </div>
                   </div>
@@ -500,10 +585,26 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                   <div>
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-sm text-gray-700">AI Conversations</span>
-                      <span className="text-xs text-gray-500">Upgrade required</span>
+                      <span className="text-xs text-gray-500">
+                        {limits.aiChats === 0 ? 'Upgrade required' : 
+                         limits.aiChats === -1 ? `${usage.aiChats}/∞` : 
+                         `${usage.aiChats}/${limits.aiChats}`}
+                      </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div className="bg-gray-300 h-1.5 rounded-full w-0"></div>
+                      <div 
+                        className={`h-1.5 rounded-full transition-all duration-500 ${
+                          limits.aiChats === 0 ? 'bg-gray-300' :
+                          limits.aiChats === -1 ? 'bg-green-500' :
+                          usage.aiChats >= limits.aiChats ? 'bg-red-500' : 
+                          usage.aiChats >= limits.aiChats * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ 
+                          width: limits.aiChats === 0 ? '0%' :
+                                 limits.aiChats === -1 ? '20%' : 
+                                 `${Math.min((usage.aiChats / limits.aiChats) * 100, 100)}%` 
+                        }}
+                      ></div>
                     </div>
                   </div>
                 </div>
@@ -521,6 +622,32 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                       className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                     >
                       Close
+                    </button>
+                    <button
+                      onClick={async () => {
+                        console.log('🔍 MANUAL DEBUG - ProfileModal Data:');
+                        console.log('📊 Current user:', user?.id);
+                        console.log('📊 Subscription from hook:', subscription);
+                        console.log('📊 Current tier:', getCurrentTier());
+                        console.log('📊 Usage:', usage);
+                        console.log('📊 Limits:', limits);
+                        
+                        // Direct DB check
+                        const supabase = createClient();
+                        const { data: dbSub, error } = await supabase
+                          .from('user_subscriptions')
+                          .select('*')
+                          .eq('user_id', user?.id);
+                        console.log('📊 Direct DB subscription:', dbSub);
+                        console.log('❌ Direct DB error:', error);
+                        
+                        // Force refresh
+                        await refresh();
+                        console.log('🔄 Forced refresh completed');
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+                    >
+                      DEBUG
                     </button>
                     <button
                       onClick={() => {

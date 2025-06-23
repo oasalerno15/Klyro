@@ -76,6 +76,8 @@ export const useSubscription = () => {
   const fetchSubscription = async () => {
     if (!user) return;
 
+    console.log('🔍 Fetching subscription for user:', user.id);
+
     try {
       const { data, error } = await supabase
         .from('user_subscriptions')
@@ -83,13 +85,16 @@ export const useSubscription = () => {
         .eq('user_id', user.id)
         .single();
 
+      console.log('📊 Subscription query result:', { data, error });
+
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.error('Error fetching subscription:', error);
+        console.error('❌ Error fetching subscription:', error);
       } else {
+        console.log('✅ Setting subscription:', data);
         setSubscription(data);
       }
     } catch (error) {
-      console.error('Error fetching subscription:', error);
+      console.error('❌ Error fetching subscription:', error);
     } finally {
       setLoading(false);
     }
@@ -119,9 +124,9 @@ export const useSubscription = () => {
       };
 
       data?.forEach((item) => {
-        if (item.feature_type === 'transaction') usageData.transactions = item.usage_count;
-        if (item.feature_type === 'receipt') usageData.receipts = item.usage_count;
-        if (item.feature_type === 'ai_chat') usageData.aiChats = item.usage_count;
+        if (item.feature_type === 'transactions') usageData.transactions = item.usage_count;
+        if (item.feature_type === 'receipts') usageData.receipts = item.usage_count;
+        if (item.feature_type === 'ai_chats') usageData.aiChats = item.usage_count;
       });
 
       setUsage(usageData);
@@ -132,9 +137,14 @@ export const useSubscription = () => {
 
   // Get current subscription tier
   const getCurrentTier = (): SubscriptionTier => {
+    console.log('🎯 getCurrentTier called with subscription:', subscription);
+    
     if (!subscription || subscription.status !== 'active') {
+      console.log('📋 Returning free tier - no subscription or inactive');
       return 'free';
     }
+    
+    console.log('🎉 Returning tier:', subscription.subscription_tier);
     return subscription.subscription_tier as SubscriptionTier;
   };
 

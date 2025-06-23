@@ -28,17 +28,24 @@ export default function SuccessStarter() {
     console.log('🎯 Creating Starter subscription for user:', user.email);
     
     try {
+      // Check if user already has a subscription
+      const { data: existingSubscription } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
       const subscriptionData = {
         user_id: user.id,
         subscription_tier: 'starter',
         status: 'active',
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        created_at: new Date().toISOString(),
+        created_at: existingSubscription?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
       
-      console.log('💾 Creating subscription:', subscriptionData);
+      console.log('💾 Creating/updating subscription:', subscriptionData);
       
       const { data, error } = await supabase
         .from('user_subscriptions')
@@ -53,26 +60,35 @@ export default function SuccessStarter() {
         return;
       }
 
-      console.log('✅ Starter subscription created successfully');
+      console.log('✅ Starter subscription created/updated successfully');
       
-      // Initialize usage for current month
+      // Initialize usage for current month (only if no existing usage)
       const currentMonth = new Date().toISOString().slice(0, 7);
       const usageTypes = ['transactions', 'receipts', 'ai_chats'];
       
       for (const featureType of usageTypes) {
-        await supabase
+        const { data: existingUsage } = await supabase
           .from('user_usage')
-          .upsert({
-            user_id: user.id,
-            feature_type: featureType,
-            month_year: currentMonth,
-            usage_count: 0
-          }, {
-            onConflict: 'user_id,feature_type,month_year'
-          });
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('feature_type', featureType)
+          .eq('month_year', currentMonth)
+          .single();
+
+        // Only create usage record if it doesn't exist (preserve existing usage)
+        if (!existingUsage) {
+          await supabase
+            .from('user_usage')
+            .insert({
+              user_id: user.id,
+              feature_type: featureType,
+              month_year: currentMonth,
+              usage_count: 0
+            });
+        }
       }
       
-      console.log('✅ Usage records initialized');
+      console.log('✅ Usage records initialized/preserved');
       setProcessing(false);
       
       // Redirect to dashboard after 3 seconds
@@ -121,66 +137,150 @@ export default function SuccessStarter() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center"
-      >
+    <div className="min-h-screen relative">
+      {/* Blurred Background */}
+      <div 
+        className="absolute inset-0 bg-gradient-to-br from-green-50 via-cream-50 to-emerald-100"
+        style={{
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23059669" fill-opacity="0.03"%3E%3Ccircle cx="30" cy="30" r="4"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+        }}
+      />
+      <div className="absolute inset-0 backdrop-blur-sm bg-white/40" />
+      
+      {/* Success Modal */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
+          initial={{ scale: 0.8, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={{ 
+            type: "spring", 
+            stiffness: 100, 
+            damping: 15,
+            duration: 0.8 
+          }}
+          className="max-w-md w-full"
         >
-          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </motion.div>
-        
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Klyro Starter!</h1>
-        <p className="text-gray-600 mb-6">
-          Your subscription has been activated successfully. You now have access to:
-        </p>
-        
-        <div className="text-left bg-gray-50 rounded-lg p-4 mb-6">
-          <ul className="space-y-2">
-            <li className="flex items-center text-sm text-gray-700">
-              <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              20 transactions per month
-            </li>
-            <li className="flex items-center text-sm text-gray-700">
-              <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              20 receipt scans per month
-            </li>
-            <li className="flex items-center text-sm text-gray-700">
-              <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              10 AI chats per month
-            </li>
-            <li className="flex items-center text-sm text-gray-700">
-              <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              Receipt scanning & mood tracking
-            </li>
-          </ul>
-        </div>
-        
-        {processing ? (
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 mr-2"></div>
-            <span className="text-gray-600">Setting up your account...</span>
+          {/* Success Card */}
+          <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-green-200/30 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-700 px-8 py-8 text-center relative overflow-hidden">
+              {/* Subtle Pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-4 left-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
+                <div className="absolute bottom-4 right-4 w-16 h-16 bg-white rounded-full blur-xl"></div>
+              </div>
+              
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ 
+                  delay: 0.3,
+                  type: "spring", 
+                  stiffness: 200, 
+                  damping: 15 
+                }}
+                className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"
+              >
+                <motion.svg 
+                  className="w-8 h-8 text-green-600" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ delay: 0.8, duration: 0.6 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </motion.svg>
+              </motion.div>
+              
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="text-2xl font-bold text-white mb-2"
+              >
+                Welcome to Klyro Starter!
+              </motion.h1>
+              
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="text-green-100"
+              >
+                Your subscription is now active
+              </motion.p>
+            </div>
+
+            {/* Content */}
+            <div className="px-8 py-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 }}
+                className="space-y-4"
+              >
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Your Starter features are ready
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Essential tools for your financial journey
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  {[
+                    { icon: "💰", text: "20 transactions/month", delay: 1.0 },
+                    { icon: "📸", text: "20 receipt scans/month", delay: 1.1 },
+                    { icon: "🧠", text: "10 AI conversations/month", delay: 1.2 },
+                    { icon: "📊", text: "Basic analytics & insights", delay: 1.3 }
+                  ].map((feature, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: feature.delay }}
+                      className="flex items-center space-x-3 p-3 rounded-lg bg-green-50 border border-green-100"
+                    >
+                      <div className="text-xl">{feature.icon}</div>
+                      <span className="text-gray-700 font-medium text-sm">{feature.text}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 pb-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.4 }}
+                className="text-center"
+              >
+                {processing ? (
+                  <div className="flex items-center justify-center space-x-3 py-3">
+                    <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-gray-600 text-sm">Setting up your account...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center space-x-2 text-green-600">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-semibold text-sm">Setup complete!</span>
+                    </div>
+                    <p className="text-xs text-gray-500">Redirecting to your dashboard...</p>
+                  </div>
+                )}
+              </motion.div>
+            </div>
           </div>
-        ) : (
-          <p className="text-sm text-gray-500">Redirecting to your dashboard...</p>
-        )}
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 } 
