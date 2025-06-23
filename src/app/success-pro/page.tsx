@@ -135,15 +135,28 @@ export default function SuccessPro() {
   }
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative" style={{ backgroundColor: '#fefce8' }}>
+      {/* Logo in top right */}
+      <div className="absolute top-6 right-6 z-20">
+        <div className="flex items-center space-x-2">
+          <img 
+            src="https://i.imgur.com/yk9L9Nx.png" 
+            alt="Klyro Logo" 
+            className="w-8 h-8"
+          />
+          <span className="text-lg font-bold text-gray-800">Klyro</span>
+        </div>
+      </div>
+
       {/* Blurred Background */}
       <div 
-        className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-cream-50 to-green-100"
+        className="absolute inset-0 bg-gradient-to-br from-yellow-50 via-cream-50 to-yellow-100"
         style={{
+          backgroundColor: '#fefce8',
           backgroundImage: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23059669" fill-opacity="0.03"%3E%3Ccircle cx="30" cy="30" r="4"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
         }}
       />
-      <div className="absolute inset-0 backdrop-blur-sm bg-white/40" />
+      <div className="absolute inset-0 backdrop-blur-sm" style={{ backgroundColor: 'rgba(254, 252, 232, 0.4)' }} />
       
       {/* Success Modal */}
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
