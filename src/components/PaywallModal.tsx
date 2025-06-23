@@ -109,12 +109,10 @@ export default function PaywallModal({ isOpen, onClose, feature, currentPlan, on
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden relative"
       >
-        {/* Logo in top left */}
+        {/* Placeholder for logo - will be replaced when user uploads actual logo */}
         <div className="absolute top-6 left-6 z-10">
-          <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L4 7v10l8 5 8-5V7l-8-5zM6 8.5L12 5l6 3.5v7L12 19l-6-3.5v-7z"/>
-            </svg>
+          <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+            <div className="w-6 h-6 bg-white rounded-md"></div>
           </div>
         </div>
 

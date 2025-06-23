@@ -138,58 +138,67 @@ export default function SuccessStarter() {
 
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: '#fefce8' }}>
-      {/* Logo in top left */}
+      {/* Placeholder for logo - will be replaced when user uploads actual logo */}
       <div className="absolute top-6 left-6 z-20">
-        <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L4 7v10l8 5 8-5V7l-8-5zM6 8.5L12 5l6 3.5v7L12 19l-6-3.5v-7z"/>
-          </svg>
+        <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+          <div className="w-6 h-6 bg-white rounded-md"></div>
         </div>
       </div>
 
-      {/* Simple Success Content */}
+      {/* Minimal Success Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Klyro Starter!</h1>
-          <p className="text-gray-600 mb-6">Your subscription is now active with access to all Starter features.</p>
-          
-          <div className="space-y-3 mb-8">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Transactions</span>
-              <span className="font-medium">20/month</span>
+        <div className="max-w-sm w-full">
+          {/* Clean Card */}
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center">
+            {/* Success Icon */}
+            <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Receipt scans</span>
-              <span className="font-medium">20/month</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">AI conversations</span>
-              <span className="font-medium">10/month</span>
-            </div>
-          </div>
-
-          {processing ? (
-            <div className="flex items-center justify-center space-x-3 py-3">
-              <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-gray-600">Setting up your account...</span>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-center space-x-2 text-green-600">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="font-semibold">Setup complete!</span>
+            
+            {/* Content */}
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">Starter Plan Active</h1>
+            <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+              Your 7-day trial has started. Cancel anytime.
+            </p>
+            
+            {/* Features */}
+            <div className="space-y-2 mb-8">
+              <div className="flex items-center justify-between py-1">
+                <span className="text-gray-600 text-sm">Transactions</span>
+                <span className="text-gray-900 font-medium text-sm">20/month</span>
               </div>
-              <p className="text-sm text-gray-500">Redirecting to your dashboard...</p>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-gray-600 text-sm">Receipt scans</span>
+                <span className="text-gray-900 font-medium text-sm">20/month</span>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-gray-600 text-sm">AI conversations</span>
+                <span className="text-gray-900 font-medium text-sm">10/month</span>
+              </div>
             </div>
-          )}
+
+            {/* Status */}
+            {processing ? (
+              <div className="flex items-center justify-center space-x-2 text-gray-500">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                <span className="text-sm">Setting up...</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex items-center justify-center space-x-2 text-green-600">
+                  <div className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <span className="font-medium text-sm">Ready</span>
+                </div>
+                <p className="text-xs text-gray-400">Redirecting to dashboard...</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

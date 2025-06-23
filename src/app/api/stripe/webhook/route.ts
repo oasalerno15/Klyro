@@ -146,7 +146,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     } else {
       console.log(`💡 Found existing user: ${user.email} (${user.id})`);
     }
-
+    
     if (!user) {
       console.error('❌ No user available after lookup/creation');
       return;
