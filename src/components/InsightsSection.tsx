@@ -794,20 +794,6 @@ CONVERSATIONAL GUIDELINES:
               Clear Chat
             </button>
           )}
-          <button
-            onClick={() => {
-              console.log('🔍 Debug - Current paywall state:', paywallState);
-              console.log('🔍 Debug - Checking AI chat access:', checkFeatureAccess('ai_chat'));
-              console.log('🔍 Debug - Force clearing all data...');
-              setMessages([]);
-              setChatHistory([]);
-              localStorage.clear();
-              window.location.reload();
-            }}
-            className="text-xs px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-full text-blue-600 transition-colors"
-          >
-            Debug & Refresh
-          </button>
         </div>
         <p className="text-gray-500 text-base">Ask anything about your mood, spending, or habits. Klyro AI is here to help!</p>
       </div>
