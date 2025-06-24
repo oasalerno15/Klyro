@@ -12,6 +12,30 @@ export default function DebugSubscription() {
   const [dbUsage, setDbUsage] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
 
+  // Only allow access in development
+  if (process.env.NODE_ENV === 'production') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Not Found</h1>
+          <p className="text-gray-600">This page is only available in development mode.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Only allow admin access (even in development)
+  if (user && user.email !== 'osalerno@browning.edu') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600">This page is only available to administrators.</p>
+        </div>
+      </div>
+    );
+  }
+
   useEffect(() => {
     if (user) {
       fetchDirectFromDB();
