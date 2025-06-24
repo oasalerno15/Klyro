@@ -755,62 +755,18 @@ CONVERSATIONAL GUIDELINES:
 
   // Load chat history from localStorage on mount
   useEffect(() => {
-    const savedChatHistory = localStorage.getItem('klyro_chat_history');
-    if (savedChatHistory) {
-      try {
-        const parsed = JSON.parse(savedChatHistory);
-        setChatHistory(parsed);
-      } catch (error) {
-        console.error('Failed to parse chat history from localStorage:', error);
-        // Set default history if parsing fails
-        setChatHistory([
-          {
-            id: '1',
-            title: 'Spending patterns last month',
-            lastMessage: 'I noticed you spent less on dining in May compared to April.',
-            date: 'June 2, 2024',
-            messages: [
-              { role: 'user', content: 'How did my spending change last month?' },
-              { role: 'assistant', content: 'I noticed you spent less on dining in May compared to April. Your restaurant spending dropped by 15%, which is great progress toward your savings goal!' }
-            ]
-          }
-        ]);
-      }
-    } else {
-      // Set default history for first time users
-      setChatHistory([
-        {
-          id: '1',
-          title: 'Spending patterns last month',
-          lastMessage: 'I noticed you spent less on dining in May compared to April.',
-          date: 'June 2, 2024',
-          messages: [
-            { role: 'user', content: 'How did my spending change last month?' },
-            { role: 'assistant', content: 'I noticed you spent less on dining in May compared to April. Your restaurant spending dropped by 15%, which is great progress toward your savings goal!' }
-          ]
-        },
-        {
-          id: '2',
-          title: 'Mood impact on finances',
-          lastMessage: 'There\'s a pattern between your mood and shopping expenses.',
-          date: 'May 30, 2024',
-          messages: [
-            { role: 'user', content: 'Is my mood affecting my spending?' },
-            { role: 'assistant', content: 'There\'s a pattern between your mood and shopping expenses. On days you rated as "stressed" (below 5/10), you spent about 30% more on online shopping.' }
-          ]
-        },
-        {
-          id: '3',
-          title: 'Weekly budget review',
-          lastMessage: 'You\'re under budget for groceries and transportation this week.',
-          date: 'May 28, 2024',
-          messages: [
-            { role: 'user', content: 'How am I doing on my budget this week?' },
-            { role: 'assistant', content: 'You\'re under budget for groceries and transportation this week. You\'ve spent $85 of your $120 grocery budget and only $22 of your $50 transportation budget.' }
-          ]
-        }
-      ]);
-    }
+    // Clear ALL localStorage items that might contain chat data
+    localStorage.removeItem('klyro_chat_history');
+    localStorage.removeItem('chat_history');
+    localStorage.removeItem('messages');
+    localStorage.removeItem('ai_chat_messages');
+    
+    // Force clear all states
+    setChatHistory([]);
+    setMessages([]);
+    setSelectedHistorySession(null);
+    
+    console.log('🧹 Cleared all chat data on mount');
   }, []);
 
   // Save chat history to localStorage whenever it changes
@@ -824,7 +780,35 @@ CONVERSATIONAL GUIDELINES:
     <div className="max-w-2xl mx-auto px-4 py-8 mt-8">
       {/* Header */}
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-extrabold text-emerald-700 mb-2 tracking-tight">Klyro AI</h1>
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <h1 className="text-3xl font-extrabold text-emerald-700 tracking-tight">Klyro AI</h1>
+          {messages.length > 0 && (
+            <button
+              onClick={() => {
+                setMessages([]);
+                setChatHistory([]);
+                localStorage.removeItem('klyro_chat_history');
+              }}
+              className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition-colors"
+            >
+              Clear Chat
+            </button>
+          )}
+          <button
+            onClick={() => {
+              console.log('🔍 Debug - Current paywall state:', paywallState);
+              console.log('🔍 Debug - Checking AI chat access:', checkFeatureAccess('ai_chat'));
+              console.log('🔍 Debug - Force clearing all data...');
+              setMessages([]);
+              setChatHistory([]);
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="text-xs px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-full text-blue-600 transition-colors"
+          >
+            Debug & Refresh
+          </button>
+        </div>
         <p className="text-gray-500 text-base">Ask anything about your mood, spending, or habits. Klyro AI is here to help!</p>
       </div>
 
@@ -1072,7 +1056,7 @@ CONVERSATIONAL GUIDELINES:
       <PaywallModal
         isOpen={paywallState.isOpen}
         onClose={hidePaywall}
-        feature={paywallState.feature}
+        feature={paywallState.feature as 'receipt' | 'ai_chat' | 'transaction' | 'upgrade'}
         currentPlan={paywallState.currentPlan}
         onUpgrade={hidePaywall}
       />

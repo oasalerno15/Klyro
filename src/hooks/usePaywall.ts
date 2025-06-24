@@ -11,72 +11,94 @@ interface PaywallState {
 
 export function usePaywall() {
   const { user } = useAuth();
-  const { subscription, usage, loading, refreshSubscription } = useSubscription();
+  const { subscription, usage, loading, refreshSubscription, getCurrentTier } = useSubscription();
   const [paywallState, setPaywallState] = useState<PaywallState>({
     isOpen: false,
     feature: '',
     currentPlan: 'free'
   });
 
-  // Get current tier from subscription
-  const currentTier = subscription?.subscription_tier || 'free';
+  // Get current tier from subscription using the proper function
+  const currentTier = getCurrentTier();
   const limits = SUBSCRIPTION_LIMITS[currentTier];
+
+  console.log('🎯 usePaywall - Current Tier:', currentTier);
+  console.log('📊 usePaywall - Limits:', limits);
+  console.log('📈 usePaywall - Usage:', usage);
 
   // Check if a feature access is allowed BEFORE performing the action
   const checkFeatureAccess = (feature: string): boolean => {
-    if (!user) {
-      console.log('❌ No user found');
-      showPaywall(feature);
-      return false;
-    }
-
+    console.log('🔍 SIMPLE CHECK - Feature:', feature);
+    console.log('🔍 SIMPLE CHECK - Current Tier:', currentTier);
+    console.log('🔍 SIMPLE CHECK - Usage:', usage);
+    console.log('🔍 SIMPLE CHECK - Limits:', limits);
+    
     if (!limits) {
-      console.log('❌ No limits found for tier:', currentTier);
-      showPaywall(feature);
-      return false;
+      console.log('❌ No limits found - allowing access');
+      return true; // If no limits, allow access
     }
-
-    // Check specific feature limits
+    
+    // Check specific feature limits based on tier
     switch (feature) {
-      case 'receipt':
-        const canUseReceipts = limits.receipts === -1 || usage.receipts < limits.receipts;
-        console.log(`🧾 Receipt check: ${usage.receipts}/${limits.receipts} - ${canUseReceipts ? 'ALLOWED' : 'BLOCKED'}`);
-        if (!canUseReceipts) {
-          showPaywall(feature);
-          return false;
-        }
-        break;
-
-      case 'transaction':
-        const canUseTransactions = limits.transactions === -1 || usage.transactions < limits.transactions;
-        console.log(`💳 Transaction check: ${usage.transactions}/${limits.transactions} - ${canUseTransactions ? 'ALLOWED' : 'BLOCKED'}`);
-        if (!canUseTransactions) {
-          showPaywall(feature);
-          return false;
-        }
-        break;
-
       case 'ai_chat':
-        const canUseAI = limits.aiChats === -1 || usage.aiChats < limits.aiChats;
-        console.log(`🤖 AI Chat check: ${usage.aiChats}/${limits.aiChats} - ${canUseAI ? 'ALLOWED' : 'BLOCKED'}`);
-        if (!canUseAI) {
+        const aiLimit = limits.aiChats;
+        const currentAIUsage = usage.aiChats;
+        
+        if (aiLimit === -1) {
+          // Unlimited for premium
+          console.log('✅ AI CHAT - UNLIMITED ACCESS');
+          return true;
+        }
+        
+        if (currentAIUsage >= aiLimit) {
+          console.log(`❌ AI CHAT BLOCKED - Used ${currentAIUsage}/${aiLimit} for ${currentTier} tier`);
           showPaywall(feature);
           return false;
         }
-        break;
-
+        
+        console.log(`✅ AI CHAT ALLOWED - Used ${currentAIUsage}/${aiLimit} for ${currentTier} tier`);
+        return true;
+        
+      case 'receipt':
+        const receiptLimit = limits.receipts;
+        const currentReceiptUsage = usage.receipts;
+        
+        if (receiptLimit === -1) {
+          console.log('✅ RECEIPT - UNLIMITED ACCESS');
+          return true;
+        }
+        
+        if (currentReceiptUsage >= receiptLimit) {
+          console.log(`❌ RECEIPT BLOCKED - Used ${currentReceiptUsage}/${receiptLimit} for ${currentTier} tier`);
+          showPaywall(feature);
+          return false;
+        }
+        
+        console.log(`✅ RECEIPT ALLOWED - Used ${currentReceiptUsage}/${receiptLimit} for ${currentTier} tier`);
+        return true;
+        
+      case 'transaction':
+        const transactionLimit = limits.transactions;
+        const currentTransactionUsage = usage.transactions;
+        
+        if (transactionLimit === -1) {
+          console.log('✅ TRANSACTION - UNLIMITED ACCESS');
+          return true;
+        }
+        
+        if (currentTransactionUsage >= transactionLimit) {
+          console.log(`❌ TRANSACTION BLOCKED - Used ${currentTransactionUsage}/${transactionLimit} for ${currentTier} tier`);
+          showPaywall(feature);
+          return false;
+        }
+        
+        console.log(`✅ TRANSACTION ALLOWED - Used ${currentTransactionUsage}/${transactionLimit} for ${currentTier} tier`);
+        return true;
+        
       default:
-        // For other features, check if they're available in the current tier
-        const featureAvailable = limits[feature as keyof typeof limits];
-        if (!featureAvailable) {
-          showPaywall(feature);
-          return false;
-        }
-        break;
+        console.log(`❓ Unknown feature: ${feature} - allowing access`);
+        return true;
     }
-
-    console.log(`✅ Feature ${feature} access granted for ${currentTier} tier`);
-    return true;
   };
 
   const showPaywall = (feature: string) => {

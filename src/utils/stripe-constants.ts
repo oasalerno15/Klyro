@@ -5,9 +5,9 @@ export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'premium';
 
 export const SUBSCRIPTION_LIMITS = {
   free: {
-    transactions: 5,
-    receipts: 2,
-    aiChats: 0,
+    transactions: 10,
+    receipts: 5,
+    aiChats: 3,
     calendar: false,
     advanced_insights: false,
     custom_categories: false,
@@ -32,9 +32,9 @@ export const SUBSCRIPTION_LIMITS = {
     export_data: false,
   },
   premium: {
-    transactions: 500,
-    receipts: 500,
-    aiChats: 500,
+    transactions: -1,
+    receipts: -1,
+    aiChats: -1,
     calendar: true,
     advanced_insights: true,
     custom_categories: true,

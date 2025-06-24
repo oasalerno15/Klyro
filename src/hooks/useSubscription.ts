@@ -22,35 +22,11 @@ interface SubscriptionLimits {
   transactions: number;
   receipts: number;
   aiChats: number;
-  features: string[];
+  calendar: boolean;
+  advanced_insights: boolean;
+  custom_categories: boolean;
+  export_data: boolean;
 }
-
-const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
-  free: {
-    transactions: 10,
-    receipts: 5,
-    aiChats: 3,
-    features: ['basic_tracking', 'mood_logging']
-  },
-  starter: {
-    transactions: 20,
-    receipts: 20,
-    aiChats: 10,
-    features: ['basic_tracking', 'mood_logging', 'receipt_scanning']
-  },
-  pro: {
-    transactions: 50,
-    receipts: 50,
-    aiChats: 100,
-    features: ['basic_tracking', 'mood_logging', 'receipt_scanning', 'ai_insights', 'analytics']
-  },
-  premium: {
-    transactions: -1, // unlimited
-    receipts: -1,     // unlimited
-    aiChats: -1,      // unlimited
-    features: ['basic_tracking', 'mood_logging', 'receipt_scanning', 'ai_insights', 'analytics', 'premium_features', 'priority_support']
-  }
-};
 
 export const useSubscription = () => {
   const { user } = useAuth();
@@ -149,7 +125,27 @@ export const useSubscription = () => {
   // Check if user has access to a feature
   const hasFeatureAccess = (feature: string): boolean => {
     const tier = getCurrentTier();
-    return SUBSCRIPTION_LIMITS[tier].features.includes(feature);
+    const limits = SUBSCRIPTION_LIMITS[tier];
+    
+    // Check specific features based on the subscription limits structure
+    switch (feature) {
+      case 'calendar':
+        return limits.calendar;
+      case 'advanced_insights':
+        return limits.advanced_insights;
+      case 'custom_categories':
+        return limits.custom_categories;
+      case 'export_data':
+        return limits.export_data;
+      case 'transactions':
+        return limits.transactions > 0;
+      case 'receipts':
+        return limits.receipts > 0;
+      case 'ai_chats':
+        return limits.aiChats > 0;
+      default:
+        return false;
+    }
   };
 
   // Check if user can use a feature based on usage limits

@@ -87,10 +87,8 @@ export async function generateInsight(prompt: string): Promise<string> {
       const errorData = await response.json().catch(() => ({})) as Record<string, unknown>;
       
       // Handle specific error cases
-      if (response.status === 403 && errorData.error === 'AI chat limit reached') {
-        return `🔒 You've reached your AI chat limit for your current plan. ${
-          errorData.upgradeRequired ? 'Consider upgrading your plan to get more AI insights.' : 'Please try again later.'
-        }`;
+      if (response.status === 403) {
+        return "I'm sorry, I couldn't process your request right now. Please try again.";
       }
       
       if (response.status === 401) {

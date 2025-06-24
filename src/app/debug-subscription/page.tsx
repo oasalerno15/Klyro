@@ -112,6 +112,16 @@ export default function DebugSubscription() {
           </button>
         </div>
 
+        {/* Feature Access Test */}
+        <div className="mt-8 bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold mb-4 text-purple-600">Feature Access Test</h3>
+          <div className="space-y-2 text-sm">
+            <div><strong>Can use AI Chat:</strong> {usage.aiChats < (subscription?.subscription_tier === 'premium' ? 999 : subscription?.subscription_tier === 'pro' ? 100 : subscription?.subscription_tier === 'starter' ? 10 : 3) ? 'YES' : 'NO'}</div>
+            <div><strong>Can use Receipts:</strong> {usage.receipts < (subscription?.subscription_tier === 'premium' ? 999 : subscription?.subscription_tier === 'pro' ? 50 : subscription?.subscription_tier === 'starter' ? 20 : 5) ? 'YES' : 'NO'}</div>
+            <div><strong>Can use Transactions:</strong> {usage.transactions < (subscription?.subscription_tier === 'premium' ? 999 : subscription?.subscription_tier === 'pro' ? 50 : subscription?.subscription_tier === 'starter' ? 20 : 10) ? 'YES' : 'NO'}</div>
+          </div>
+        </div>
+
         {/* Instructions */}
         <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <h3 className="font-semibold text-yellow-800 mb-2">Debug Instructions:</h3>
