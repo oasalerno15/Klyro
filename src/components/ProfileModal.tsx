@@ -164,8 +164,19 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
       refresh();
     };
     
+    // Listen for global refresh events (e.g., from AI chat completion)
+    const handleGlobalRefresh = () => {
+      console.log('🔄 Global refresh event received - updating subscription data...');
+      refresh();
+    };
+    
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    window.addEventListener('refreshSubscriptionData', handleGlobalRefresh);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('refreshSubscriptionData', handleGlobalRefresh);
+    };
   }, [user, refresh]);
 
   const getInitials = (name: string) => {

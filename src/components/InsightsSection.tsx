@@ -675,6 +675,9 @@ CONVERSATIONAL GUIDELINES:
                 increment: 1 
               }),
             });
+            
+            // Trigger global subscription refresh for other components
+            triggerGlobalRefresh();
           } catch (error) {
             console.error('Error tracking AI chat usage:', error);
           }
@@ -775,6 +778,12 @@ CONVERSATIONAL GUIDELINES:
       localStorage.setItem('klyro_chat_history', JSON.stringify(chatHistory));
     }
   }, [chatHistory]);
+
+  // Function to trigger a global subscription refresh
+  const triggerGlobalRefresh = () => {
+    // Dispatch a custom event that other components can listen to
+    window.dispatchEvent(new CustomEvent('refreshSubscriptionData'));
+  };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 mt-8">
