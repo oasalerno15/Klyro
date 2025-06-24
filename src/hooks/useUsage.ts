@@ -102,17 +102,17 @@ export function useUsage() {
   // Helper functions for common checks
   const canUploadReceipt = () => {
     if (!usageData) return false;
-    return usageData.limits.receipts === -1 || usageData.usage.receipts_scanned < usageData.limits.receipts;
+    return usageData.limits.receipts === -1 || usageData.usage.receipts < usageData.limits.receipts;
   };
 
   const canUseAI = () => {
     if (!usageData) return false;
-    return usageData.limits.ai_chats === -1 || usageData.usage.ai_chats_used < usageData.limits.ai_chats;
+    return usageData.limits.aiChats === -1 || usageData.usage.aiChats < usageData.limits.aiChats;
   };
 
   const canAddTransaction = () => {
     if (!usageData) return false;
-    return usageData.limits.transactions === -1 || usageData.usage.transactions_used < usageData.limits.transactions;
+    return usageData.limits.transactions === -1 || usageData.usage.transactions < usageData.limits.transactions;
   };
 
   // Get remaining counts for display

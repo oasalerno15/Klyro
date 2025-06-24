@@ -2,14 +2,18 @@ import { createClient } from '@/lib/supabase/client';
 import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from '@/utils/stripe-constants';
 
 export interface UserUsage {
-  transactions_used: number;
-  receipts_scanned: number;
-  ai_chats_used: number;
+  transactions: number;
+  receipts: number;
+  aiChats: number;
 }
 
 export interface UserSubscription {
+  id: string;
+  user_id: string;
   subscription_tier: SubscriptionTier;
-  status: 'active' | 'canceled' | 'past_due' | 'incomplete';
+  status: string;
+  current_period_start?: string;
+  current_period_end?: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
 }
@@ -17,24 +21,19 @@ export interface UserSubscription {
 export class UsageService {
   private supabase = createClient();
 
-  // Get user's current subscription
+  // Get user's subscription
   async getUserSubscription(userId: string): Promise<UserSubscription | null> {
     const { data, error } = await this.supabase
       .from('user_subscriptions')
-      .select('subscription_tier, status, stripe_customer_id, stripe_subscription_id')
+      .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active')
       .single();
 
     if (error || !data) {
-      // Return free tier if no subscription found
-      return {
-        subscription_tier: 'free',
-        status: 'active'
-      };
+      return null;
     }
 
-    return data as UserSubscription;
+    return data;
   }
 
   // Get user's current month usage
@@ -43,20 +42,32 @@ export class UsageService {
 
     const { data, error } = await this.supabase
       .from('user_usage')
-      .select('transactions_used, receipts_scanned, ai_chats_used')
+      .select('*')
       .eq('user_id', userId)
-      .eq('month_year', currentMonth)
-      .single();
+      .eq('month_year', currentMonth);
 
     if (error || !data) {
       return {
-        transactions_used: 0,
-        receipts_scanned: 0,
-        ai_chats_used: 0
+        transactions: 0,
+        receipts: 0,
+        aiChats: 0
       };
     }
 
-    return data;
+    // Convert from feature_type/usage_count format to our interface
+    const usageData = {
+      transactions: 0,
+      receipts: 0,
+      aiChats: 0
+    };
+
+    data.forEach((item) => {
+      if (item.feature_type === 'transactions') usageData.transactions = item.usage_count;
+      if (item.feature_type === 'receipts') usageData.receipts = item.usage_count;
+      if (item.feature_type === 'ai_chats') usageData.aiChats = item.usage_count;
+    });
+
+    return usageData;
   }
 
   // Check if user can perform an action
@@ -79,16 +90,16 @@ export class UsageService {
 
     switch (action) {
       case 'transaction':
-        currentUsage = usage.transactions_used;
+        currentUsage = usage.transactions;
         limit = limits.transactions;
         break;
       case 'receipt':
-        currentUsage = usage.receipts_scanned;
+        currentUsage = usage.receipts;
         limit = limits.receipts;
         break;
       case 'ai_chat':
-        currentUsage = usage.ai_chats_used;
-        limit = limits.ai_chats;
+        currentUsage = usage.aiChats;
+        limit = limits.aiChats;
         break;
     }
 
@@ -112,19 +123,45 @@ export class UsageService {
     }
 
     const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    // Map action to feature_type
+    const featureType = action === 'transaction' ? 'transactions' : 
+                       action === 'receipt' ? 'receipts' : 'ai_chats';
 
-    // Use upsert to handle both insert and update cases
-    const updateField = action === 'transaction' ? 'transactions_used' : 
-                       action === 'receipt' ? 'receipts_scanned' : 'ai_chats_used';
+    try {
+      const { error } = await this.supabase.rpc('increment_user_usage', {
+        p_user_id: userId,
+        p_feature_type: featureType,
+        p_increment: 1
+      });
 
+      return !error;
+    } catch (error) {
+      console.error('Error incrementing usage:', error);
+      return false;
+    }
+  }
+
+  // Update user subscription
+  async updateUserSubscription(userId: string, subscriptionData: {
+    tier: SubscriptionTier;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    status?: 'active' | 'canceled' | 'past_due' | 'incomplete';
+  }): Promise<boolean> {
     const { error } = await this.supabase
-      .from('user_usage')
+      .from('user_subscriptions')
       .upsert({
         user_id: userId,
-        month_year: currentMonth,
-        [updateField]: (await this.getCurrentUsage(userId))[updateField as keyof UserUsage] + 1
+        subscription_tier: subscriptionData.tier,
+        stripe_customer_id: subscriptionData.stripeCustomerId,
+        stripe_subscription_id: subscriptionData.stripeSubscriptionId,
+        status: subscriptionData.status || 'active',
+        current_period_start: new Date().toISOString(),
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'user_id,month_year'
+        onConflict: 'user_id'
       });
 
     return !error;
@@ -150,9 +187,9 @@ export class UsageService {
     const limits = SUBSCRIPTION_LIMITS[tier];
 
     const remaining = {
-      transactions: limits.transactions === -1 ? -1 : Math.max(0, limits.transactions - usage.transactions_used),
-      receipts: limits.receipts === -1 ? -1 : Math.max(0, limits.receipts - usage.receipts_scanned),
-      ai_chats: limits.ai_chats === -1 ? -1 : Math.max(0, limits.ai_chats - usage.ai_chats_used)
+      transactions: limits.transactions === -1 ? -1 : Math.max(0, limits.transactions - usage.transactions),
+      receipts: limits.receipts === -1 ? -1 : Math.max(0, limits.receipts - usage.receipts),
+      ai_chats: limits.aiChats === -1 ? -1 : Math.max(0, limits.aiChats - usage.aiChats)
     };
 
     return {
@@ -161,29 +198,6 @@ export class UsageService {
       limits,
       remaining
     };
-  }
-
-  // Create or update user subscription (called after successful Stripe payment)
-  async updateUserSubscription(userId: string, subscriptionData: {
-    tier: SubscriptionTier;
-    stripeCustomerId?: string;
-    stripeSubscriptionId?: string;
-    status?: 'active' | 'canceled' | 'past_due' | 'incomplete';
-  }): Promise<boolean> {
-    const { error } = await this.supabase
-      .from('user_subscriptions')
-      .upsert({
-        user_id: userId,
-        subscription_tier: subscriptionData.tier,
-        stripe_customer_id: subscriptionData.stripeCustomerId,
-        stripe_subscription_id: subscriptionData.stripeSubscriptionId,
-        status: subscriptionData.status || 'active',
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
-      });
-
-    return !error;
   }
 }
 
