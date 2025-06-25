@@ -11,7 +11,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import FinanceSection from '@/components/FinanceSection';
 import SpendingChart from '@/components/PlaceholderChart';
-import InsightsSection from '@/components/InsightsSection';
 import RoadmapSection from '@/components/RoadmapSection';
 import PaywallModal from '@/components/PaywallModal';
 import UsageLimitBanner from '@/components/UsageLimitBanner';
@@ -25,6 +24,10 @@ import ProfileModal from '@/components/ProfileModal';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import { generateInsight } from '@/utils/aiUtils';
 import { toast } from 'sonner';
+import AIAssistant from '@/components/AIAssistant';
+import ReceiptUploadModal from '@/components/ReceiptUploadModal';
+import PlaceholderChart from '@/components/PlaceholderChart';
+import ReceiptAnalysisFlow from '@/components/ReceiptAnalysisFlow';
 
 // Placeholder data - in real app would come from API
 const analyticsData = {
@@ -873,7 +876,7 @@ export default function Dashboard() {
       case 'finances':
         return <FinanceSection />;
       case 'insights':
-        return <InsightsSection />;
+        return <AIAssistant />;
       case 'roadmap':
         return <RoadmapSection user={user} />;
       case 'dashboard':

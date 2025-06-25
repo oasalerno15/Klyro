@@ -290,10 +290,10 @@ export default function SpendingChart({ transactions }: SpendingChartProps) {
                       />
                       <Line
                         type="monotone"
-                        dataKey="normalizedMoodScore"
+                        dataKey="spending"
                         stroke="transparent"
                         strokeWidth={0}
-                        dot={{ stroke: '#3B82F6', strokeWidth: 2, fill: '#3B82F6', r: 5 }}
+                        dot={{ stroke: '#3B82F6', strokeWidth: 2, fill: '#3B82F6', r: 3 }}
                         connectNulls={false}
                       />
                     </LineChart>
@@ -394,7 +394,7 @@ export default function SpendingChart({ transactions }: SpendingChartProps) {
                   dataKey="spending"
                   stroke="transparent"
                   strokeWidth={0}
-                  dot={{ stroke: '#3B82F6', strokeWidth: 2, fill: '#3B82F6', r: 2 }}
+                  dot={{ stroke: '#3B82F6', strokeWidth: 2, fill: '#3B82F6', r: 3 }}
                   connectNulls={false}
                 />
               </LineChart>
