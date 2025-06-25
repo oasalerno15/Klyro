@@ -247,22 +247,17 @@ export default function AIAssistant() {
       // Begin typing animation after a short delay
       setTimeout(() => {
         startTypingAnimation(aiResponseText);
-      }, 800);
+        
+        // Refresh subscription data after successful AI response
+        setTimeout(() => {
+          console.log('🔄 Refreshing subscription data after AI response');
+          refreshSubscription();
+        }, 1000);
+      }, 500);
 
-      // Refresh usage data after successful API call
-      setTimeout(() => {
-        refreshSubscription();
-      }, 1000);
-      
     } catch (error) {
-      console.error('Error getting AI response:', error);
-      const errorMessage = "I'm sorry, there was a problem processing your request. Please try again.";
-      setFullResponse(errorMessage);
-      setCurrentTypingText('');
-      
-      setTimeout(() => {
-        startTypingAnimation(errorMessage);
-      }, 800);
+      console.error('Error sending message:', error);
+      setIsTyping(false);
     }
   };
 
@@ -321,8 +316,59 @@ export default function AIAssistant() {
     }
   }, [messages, currentTypingText]);
 
+  // Listen for global refresh events
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      console.log('🔄 AIAssistant received global refresh event');
+      refreshSubscription();
+    };
+
+    window.addEventListener('refreshSubscriptionData', handleGlobalRefresh);
+    return () => {
+      window.removeEventListener('refreshSubscriptionData', handleGlobalRefresh);
+    };
+  }, [refreshSubscription]);
+
   return (
-    <div className="flex flex-col h-screen relative">
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Header with Usage Indicator */}
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-extrabold text-emerald-700 tracking-tight mb-2">Klyro AI</h1>
+        <p className="text-gray-500 text-base mb-4">Get personalized insights on your financial wellness</p>
+        
+        {/* Usage Progress Indicator */}
+        {usage && limits && (
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full border">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  {limits.aiChats === -1 ? `${usage.aiChats} AI chats used` : `${usage.aiChats}/${limits.aiChats} AI chats used`}
+                </span>
+                {limits.aiChats !== -1 && (
+                  <span className="text-xs text-gray-500">this month</span>
+                )}
+              </div>
+              {limits.aiChats !== -1 && (
+                <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      usage.aiChats >= limits.aiChats ? 'bg-red-500' :
+                      usage.aiChats >= limits.aiChats * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ 
+                      width: `${Math.min((usage.aiChats / limits.aiChats) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+              )}
+              {limits.aiChats !== -1 && usage.aiChats >= limits.aiChats && (
+                <span className="text-xs text-red-600 font-medium">Limit reached</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Title - Only show when no messages */}
       {messages.length === 0 && (
         <div className="text-center py-8">
