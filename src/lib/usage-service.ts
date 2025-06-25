@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from '@/utils/stripe-constants';
 
 export interface UserUsage {
@@ -19,11 +19,10 @@ export interface UserSubscription {
 }
 
 export class UsageService {
-  private supabase = createClient();
-
   // Get user's subscription
   async getUserSubscription(userId: string): Promise<UserSubscription | null> {
-    const { data, error } = await this.supabase
+    const supabase = await createClient();
+    const { data, error } = await supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId)
@@ -38,9 +37,10 @@ export class UsageService {
 
   // Get user's current month usage
   async getCurrentUsage(userId: string): Promise<UserUsage> {
+    const supabase = await createClient();
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
-    const { data, error } = await this.supabase
+    const { data, error } = await supabase
       .from('user_usage')
       .select('*')
       .eq('user_id', userId)
@@ -116,28 +116,46 @@ export class UsageService {
 
   // Increment usage for an action
   async incrementUsage(userId: string, action: 'transaction' | 'receipt' | 'ai_chat'): Promise<boolean> {
+    console.log('🔧 UsageService.incrementUsage called:', { userId, action });
+    
     const canPerform = await this.canPerformAction(userId, action);
+    console.log('🔍 Can perform action result:', canPerform);
     
     if (!canPerform.allowed) {
+      console.log('❌ Action not allowed - usage limit reached');
       return false;
     }
 
     const currentMonth = new Date().toISOString().slice(0, 7);
+    console.log('📅 Current month:', currentMonth);
     
     // Map action to feature_type
     const featureType = action === 'transaction' ? 'transactions' : 
                        action === 'receipt' ? 'receipts' : 'ai_chats';
+    
+    console.log('🔄 Calling increment_user_usage RPC with:', {
+      p_user_id: userId,
+      p_feature_type: featureType,
+      p_increment: 1
+    });
 
     try {
-      const { error } = await this.supabase.rpc('increment_user_usage', {
+      const supabase = await createClient();
+      const { error } = await supabase.rpc('increment_user_usage', {
         p_user_id: userId,
         p_feature_type: featureType,
         p_increment: 1
       });
 
-      return !error;
+      if (error) {
+        console.error('❌ RPC error:', error);
+        return false;
+      }
+      
+      console.log('✅ RPC call successful');
+      return true;
     } catch (error) {
-      console.error('Error incrementing usage:', error);
+      console.error('❌ Exception in incrementUsage:', error);
       return false;
     }
   }
@@ -149,7 +167,8 @@ export class UsageService {
     stripeSubscriptionId?: string;
     status?: 'active' | 'canceled' | 'past_due' | 'incomplete';
   }): Promise<boolean> {
-    const { error } = await this.supabase
+    const supabase = await createClient();
+    const { error } = await supabase
       .from('user_subscriptions')
       .upsert({
         user_id: userId,

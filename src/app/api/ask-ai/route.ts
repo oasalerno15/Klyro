@@ -199,7 +199,15 @@ Total transactions available: ${transactions.length}
     }
     
     // Increment usage after successful AI chat
-    await usageService.incrementUsage(user.id, 'ai_chat');
+    console.log('🔄 About to increment AI chat usage for user:', user.id);
+    const usageIncremented = await usageService.incrementUsage(user.id, 'ai_chat');
+    console.log('📊 Usage increment result:', usageIncremented);
+    
+    if (!usageIncremented) {
+      console.warn('⚠️ Failed to increment AI chat usage');
+    } else {
+      console.log('✅ Successfully incremented AI chat usage');
+    }
     
     return NextResponse.json({ result: data.choices[0].message.content || "I couldn't generate a response. Please try again." });
   } catch (error: unknown) {

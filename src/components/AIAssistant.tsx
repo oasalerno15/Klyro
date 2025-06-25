@@ -181,12 +181,9 @@ export default function AIAssistant() {
 
   return (
     <div className="flex flex-col h-screen max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex-shrink-0 p-6 border-b border-gray-200">
+      {/* Usage Indicator - Moved to top without header */}
+      <div className="flex-shrink-0 p-4 border-b border-gray-200">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Klyro AI</h1>
-          <p className="text-gray-600 mb-4">Get personalized insights on your financial wellness</p>
-          
           {/* Usage Indicator */}
           {usage && limits && (
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm">
@@ -209,6 +206,31 @@ export default function AIAssistant() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Input Area - Moved higher */}
+      <div className="flex-shrink-0 p-4 border-b border-gray-200">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+          <div className="relative">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Ask me anything about your finances..."
+              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={!message.trim() || isTyping}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-colors shadow-sm"
+            >
+              <svg className="w-4 h-4 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              </svg>
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Welcome State */}
@@ -322,31 +344,6 @@ export default function AIAssistant() {
           </div>
         </div>
       )}
-
-      {/* Input Area */}
-      <div className="flex-shrink-0 p-6 border-t border-gray-200">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-          <div className="relative">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask me anything about your finances..."
-              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              autoFocus
-            />
-            <button
-              type="submit"
-              disabled={!message.trim() || isTyping}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-colors shadow-sm"
-            >
-              <svg className="w-4 h-4 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-              </svg>
-            </button>
-          </div>
-        </form>
-      </div>
 
       {/* Paywall Modal */}
       <PaywallModal
