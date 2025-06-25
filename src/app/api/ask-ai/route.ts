@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { usageService } from '@/lib/usage-service';
+import { serverUsageService } from '@/lib/usage-service-server';
 
 // Utility function to add delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     }
 
     // Check if user can use AI chat
-    const canChat = await usageService.canPerformAction(user.id, 'ai_chat');
+    const canChat = await serverUsageService.canPerformAction(user.id, 'ai_chat');
     if (!canChat.allowed) {
       return NextResponse.json({ 
         error: 'AI chat limit reached',
@@ -200,7 +200,7 @@ Total transactions available: ${transactions.length}
     
     // Increment usage after successful AI chat
     console.log('🔄 About to increment AI chat usage for user:', user.id);
-    const usageIncremented = await usageService.incrementUsage(user.id, 'ai_chat');
+    const usageIncremented = await serverUsageService.incrementUsage(user.id, 'ai_chat');
     console.log('📊 Usage increment result:', usageIncremented);
     
     if (!usageIncremented) {

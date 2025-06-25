@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import { SUBSCRIPTION_LIMITS, type SubscriptionTier } from '@/utils/stripe-constants';
 
 export interface UserUsage {
@@ -18,12 +18,11 @@ export interface UserSubscription {
   stripe_subscription_id?: string;
 }
 
-export class UsageService {
-  private supabase = createClient();
-
+export class ServerUsageService {
   // Get user's subscription
   async getUserSubscription(userId: string): Promise<UserSubscription | null> {
-    const { data, error } = await this.supabase
+    const supabase = await createClient();
+    const { data, error } = await supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId)
@@ -38,9 +37,10 @@ export class UsageService {
 
   // Get user's current month usage
   async getCurrentUsage(userId: string): Promise<UserUsage> {
+    const supabase = await createClient();
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
-    const { data, error } = await this.supabase
+    const { data, error } = await supabase
       .from('user_usage')
       .select('*')
       .eq('user_id', userId)
@@ -116,7 +116,7 @@ export class UsageService {
 
   // Increment usage for an action
   async incrementUsage(userId: string, action: 'transaction' | 'receipt' | 'ai_chat'): Promise<boolean> {
-    console.log('🔧 UsageService.incrementUsage called:', { userId, action });
+    console.log('🔧 ServerUsageService.incrementUsage called:', { userId, action });
     
     const canPerform = await this.canPerformAction(userId, action);
     console.log('🔍 Can perform action result:', canPerform);
@@ -140,7 +140,8 @@ export class UsageService {
     });
 
     try {
-      const { error } = await this.supabase.rpc('increment_user_usage', {
+      const supabase = await createClient();
+      const { error } = await supabase.rpc('increment_user_usage', {
         p_user_id: userId,
         p_feature_type: featureType,
         p_increment: 1
@@ -158,65 +159,7 @@ export class UsageService {
       return false;
     }
   }
-
-  // Update user subscription
-  async updateUserSubscription(userId: string, subscriptionData: {
-    tier: SubscriptionTier;
-    stripeCustomerId?: string;
-    stripeSubscriptionId?: string;
-    status?: 'active' | 'canceled' | 'past_due' | 'incomplete';
-  }): Promise<boolean> {
-    const { error } = await this.supabase
-      .from('user_subscriptions')
-      .upsert({
-        user_id: userId,
-        subscription_tier: subscriptionData.tier,
-        stripe_customer_id: subscriptionData.stripeCustomerId,
-        stripe_subscription_id: subscriptionData.stripeSubscriptionId,
-        status: subscriptionData.status || 'active',
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id'
-      });
-
-    return !error;
-  }
-
-  // Get usage summary for display
-  async getUsageSummary(userId: string): Promise<{
-    tier: SubscriptionTier;
-    usage: UserUsage;
-    limits: typeof SUBSCRIPTION_LIMITS[SubscriptionTier];
-    remaining: {
-      transactions: number;
-      receipts: number;
-      ai_chats: number;
-    };
-  }> {
-    const [subscription, usage] = await Promise.all([
-      this.getUserSubscription(userId),
-      this.getCurrentUsage(userId)
-    ]);
-
-    const tier = subscription?.subscription_tier || 'free';
-    const limits = SUBSCRIPTION_LIMITS[tier];
-
-    const remaining = {
-      transactions: limits.transactions === -1 ? -1 : Math.max(0, limits.transactions - usage.transactions),
-      receipts: limits.receipts === -1 ? -1 : Math.max(0, limits.receipts - usage.receipts),
-      ai_chats: limits.aiChats === -1 ? -1 : Math.max(0, limits.aiChats - usage.aiChats)
-    };
-
-    return {
-      tier,
-      usage,
-      limits,
-      remaining
-    };
-  }
 }
 
 // Export singleton instance
-export const usageService = new UsageService(); 
+export const serverUsageService = new ServerUsageService(); 
