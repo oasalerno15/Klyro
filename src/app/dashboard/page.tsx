@@ -296,6 +296,7 @@ export default function Dashboard() {
     subscription
   } = usePaywall();
   const subscriptionHook = useSubscription();
+  const [showReceiptPaywall, setShowReceiptPaywall] = useState(false);
   
   const [darkMode, setDarkMode] = useState(false);
   const [currentWelcomeIndex, setCurrentWelcomeIndex] = useState(0);
@@ -327,17 +328,35 @@ export default function Dashboard() {
 
   const supabase = createClient();
 
-  // Enhanced receipt upload handler with paywall check
+  // Simple check if user can upload receipts
+  const canUploadReceiptSimple = () => {
+    if (!subscriptionHook.usage || !subscriptionHook.limits) return false;
+    
+    const currentTier = subscriptionHook.getCurrentTier();
+    console.log('🔍 Receipt Upload Check:', {
+      tier: currentTier,
+      used: subscriptionHook.usage.receipts,
+      limit: subscriptionHook.limits.receipts,
+      canUse: subscriptionHook.limits.receipts === -1 || subscriptionHook.usage.receipts < subscriptionHook.limits.receipts
+    });
+    
+    // Premium gets unlimited (-1)
+    if (subscriptionHook.limits.receipts === -1) return true;
+    
+    // Check if under limit
+    return subscriptionHook.usage.receipts < subscriptionHook.limits.receipts;
+  };
+
+  // Enhanced receipt upload handler with simple paywall check
   const handleReceiptUploadClick = () => {
     console.log('🔍 Receipt upload clicked');
-    console.log('Current tier:', currentTier);
-    console.log('Current usage:', getRemainingUsage('receipt'));
-    console.log('Feature access check result:', checkFeatureAccess('receipt'));
     
-    if (!checkFeatureAccess('receipt')) {
-      console.log('❌ Receipt upload blocked by paywall');
-      return; // Paywall will be shown by checkFeatureAccess
+    if (!canUploadReceiptSimple()) {
+      console.log('❌ Receipt upload blocked - showing paywall');
+      setShowReceiptPaywall(true);
+      return;
     }
+    
     console.log('✅ Receipt upload allowed');
     setShowReceiptUpload(true);
   };
@@ -357,8 +376,9 @@ export default function Dashboard() {
       return;
     }
 
-    // Check if user can still upload receipts
-    if (!checkFeatureAccess('receipt')) {
+    // Check if user can still upload receipts (double-check)
+    if (!canUploadReceiptSimple()) {
+      setShowReceiptPaywall(true);
       return;
     }
 
@@ -536,6 +556,12 @@ export default function Dashboard() {
           }),
         });
         console.log('✅ Receipt usage incremented');
+        
+        // Refresh subscription data to update usage counters
+        setTimeout(() => {
+          subscriptionHook.refreshSubscription();
+        }, 1000);
+        
       } catch (error) {
         console.error('Error tracking receipt usage:', error);
       }
@@ -1389,18 +1415,18 @@ export default function Dashboard() {
                   <button
                     onClick={handleReceiptUploadClick}
                     className={`inline-flex items-center px-3 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
-                      canUploadReceipt() 
+                      canUploadReceiptSimple() 
                         ? 'bg-gray-900 hover:bg-gray-800' 
                         : 'bg-gray-400 cursor-not-allowed'
                     }`}
-                    disabled={!canUploadReceipt()}
+                    disabled={!canUploadReceiptSimple()}
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     Upload Receipt
-                    {!canUploadReceipt() && (
+                    {!canUploadReceiptSimple() && (
                       <span className="ml-2 text-xs bg-red-500 text-white px-2 py-1 rounded">
                         Limit Reached
                       </span>
@@ -2199,6 +2225,15 @@ export default function Dashboard() {
           // This will be handled by the PaywallModal component directly
           hidePaywall();
         }}
+      />
+
+      {/* Receipt Paywall Modal */}
+      <PaywallModal
+        isOpen={showReceiptPaywall}
+        onClose={() => setShowReceiptPaywall(false)}
+        feature="receipt"
+        currentPlan={subscriptionHook.getCurrentTier()}
+        onUpgrade={() => setShowReceiptPaywall(false)}
       />
     </div>
   );

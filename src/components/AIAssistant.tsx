@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DailyBriefCard from './DailyBriefCard';
 import PaywallModal from './PaywallModal';
-import { usePaywall } from '@/hooks/usePaywall';
 import { useAuth } from '@/lib/auth';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface Message {
   text: string;
@@ -55,7 +55,8 @@ const categorySuggestions = {
 
 export default function AIAssistant() {
   const { user } = useAuth();
-  const { checkFeatureAccess, incrementUsage, paywallState, hidePaywall } = usePaywall();
+  const { usage, limits, getCurrentTier, refreshSubscription } = useSubscription();
+  const [showPaywall, setShowPaywall] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -81,6 +82,25 @@ export default function AIAssistant() {
     day: 'numeric'
   });
 
+  // Simple check if user can use AI chat
+  const canUseAIChat = () => {
+    if (!usage || !limits) return false;
+    
+    const currentTier = getCurrentTier();
+    console.log('🔍 AI Chat Check:', {
+      tier: currentTier,
+      used: usage.aiChats,
+      limit: limits.aiChats,
+      canUse: limits.aiChats === -1 || usage.aiChats < limits.aiChats
+    });
+    
+    // Premium gets unlimited (-1)
+    if (limits.aiChats === -1) return true;
+    
+    // Check if under limit
+    return usage.aiChats < limits.aiChats;
+  };
+
   // Handle clicks outside of the suggestion dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -102,13 +122,14 @@ export default function AIAssistant() {
     e.preventDefault();
     if (!message.trim()) return;
 
-    // Check paywall access for AI chat BEFORE making the call
-    console.log('🔍 AI chat attempted in AIAssistant');
-    if (!checkFeatureAccess('ai_chat')) {
-      console.log('❌ AI chat blocked by paywall in AIAssistant');
-      return; // Paywall will be shown by checkFeatureAccess
+    // SIMPLE PAYWALL CHECK
+    if (!canUseAIChat()) {
+      console.log('❌ AI chat blocked - showing paywall');
+      setShowPaywall(true);
+      return;
     }
-    console.log('✅ AI chat allowed in AIAssistant');
+
+    console.log('✅ AI chat allowed - proceeding');
 
     // Add user message
     const newMessage: Message = {
@@ -227,6 +248,12 @@ export default function AIAssistant() {
       setTimeout(() => {
         startTypingAnimation(aiResponseText);
       }, 800);
+
+      // Refresh usage data after successful API call
+      setTimeout(() => {
+        refreshSubscription();
+      }, 1000);
+      
     } catch (error) {
       console.error('Error getting AI response:', error);
       const errorMessage = "I'm sorry, there was a problem processing your request. Please try again.";
@@ -264,23 +291,10 @@ export default function AIAssistant() {
       timestamp: new Date()
     }]);
     
-    // Trigger global subscription refresh for other components (usage is tracked in API)
-    // Add a small delay to ensure database update completes before refresh
-    setTimeout(() => {
-      console.log('🔄 Triggering global refresh after AI response');
-      triggerGlobalRefresh();
-    }, 500);
-    
     // Reset typing states
     setIsTyping(false);
     setCurrentTypingText('');
     setFullResponse('');
-  };
-
-  // Function to trigger a global subscription refresh
-  const triggerGlobalRefresh = () => {
-    // Dispatch a custom event that other components can listen to
-    window.dispatchEvent(new CustomEvent('refreshSubscriptionData'));
   };
 
   const handleSuggestionClick = (suggestion: string, category: string) => {
@@ -707,11 +721,11 @@ export default function AIAssistant() {
 
       {/* Paywall Modal */}
       <PaywallModal
-        isOpen={paywallState.isOpen}
-        onClose={hidePaywall}
-        feature={paywallState.feature as 'receipt' | 'ai_chat' | 'transaction' | 'upgrade'}
-        currentPlan={paywallState.currentPlan}
-        onUpgrade={hidePaywall}
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        feature="ai_chat"
+        currentPlan={getCurrentTier()}
+        onUpgrade={() => setShowPaywall(false)}
       />
     </div>
   );
