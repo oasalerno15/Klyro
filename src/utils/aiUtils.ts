@@ -62,6 +62,39 @@ export const moodBudgetingSystemPrompt = `
  * @returns A promise that resolves to the AI-generated insight
  */
 export async function generateInsight(prompt: string): Promise<string> {
+  // Check usage limits first - simple boolean approach
+  try {
+    const response = await fetch('/api/check-usage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ featureType: 'ai_chats' }),
+    });
+
+    if (!response.ok) {
+      return "Please log in to use AI insights.";
+    }
+
+    const { canUse } = await response.json();
+    if (!canUse) {
+      return "🔒 You've reached your AI insight limit for this month. Upgrade to continue using AI features!";
+    }
+
+    // Track usage before generating insight
+    await fetch('/api/track-usage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ featureType: 'ai_chats' }),
+    });
+
+  } catch (error) {
+    console.error('Error checking usage:', error);
+    return "Unable to check usage limits. Please try again.";
+  }
+
   // Call the API endpoint rather than returning mock responses
   try {
     // Create AbortController for timeout
