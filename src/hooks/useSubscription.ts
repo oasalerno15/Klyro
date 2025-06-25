@@ -242,9 +242,14 @@ export const useSubscription = () => {
     incrementUsage,
     isSubscriptionActive,
     refreshSubscription,
-    refresh: () => {
-      fetchSubscription();
-      fetchUsage();
+    refresh: async () => {
+      if (user) {
+        console.log('🔄 Refreshing subscription and usage data...');
+        setLoading(true);
+        await fetchSubscription();
+        await fetchUsage();
+        console.log('✅ Subscription and usage data refreshed');
+      }
     },
     limits: SUBSCRIPTION_LIMITS[getCurrentTier()]
   };

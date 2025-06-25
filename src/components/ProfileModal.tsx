@@ -323,7 +323,7 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                   
                   <div className={`p-6 rounded-lg ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
                     <div className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'} mb-1`}>
-                      {accountStats.aiInsightsGenerated}
+                      {usage.aiChats}
                     </div>
                     <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       AI Insights
@@ -767,7 +767,7 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
 
               {/* Footer */}
               <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-                <div className="flex space-x-3 justify-end">
+                <div className="flex space-x-3 justify-center">
                   <button
                     onClick={() => setShowCancelModal(false)}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

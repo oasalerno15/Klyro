@@ -663,67 +663,12 @@ CONVERSATIONAL GUIDELINES:
         const finalMessages = [...updatedMessages, assistantMessage];
         setMessages(finalMessages);
         
-        // Increment AI chat usage after successful completion
-        if (user?.id) {
-          try {
-            await fetch('/api/usage/increment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                userId: user.id, 
-                featureType: 'ai_chat',
-                increment: 1 
-              }),
-            });
-            
-            // Trigger global subscription refresh for other components
-            triggerGlobalRefresh();
-          } catch (error) {
-            console.error('Error tracking AI chat usage:', error);
-          }
-        }
-        
-        // Save to chat history when complete
-        // Only save if this isn't a loaded history session or if it's a new follow-up to an existing session
-        if (!selectedHistorySession) {
-          // Create a new chat session with a unique ID
-          const newChatId = Date.now().toString();
-          const newChatSession: ChatSession = {
-            id: newChatId,
-            title: userMessage.content.length > 30 
-              ? userMessage.content.substring(0, 30) + '...' 
-              : userMessage.content,
-            lastMessage: aiResponse,
-            date: new Date().toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            }),
-            messages: finalMessages
-          };
-          
-          setChatHistory(prev => [newChatSession, ...prev]);
-          setSelectedHistorySession(newChatId);
-        } else {
-          // Update existing chat session with new messages
-          const updatedHistory = chatHistory.map(session => {
-            if (session.id === selectedHistorySession) {
-              return {
-                ...session,
-                lastMessage: aiResponse,
-                date: new Date().toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                }),
-                messages: finalMessages
-              };
-            }
-            return session;
-          });
-          
-          setChatHistory(updatedHistory);
-        }
+        // Trigger global subscription refresh for other components (usage is tracked in API)
+        // Add a small delay to ensure database update completes before refresh
+        setTimeout(() => {
+          console.log('🔄 Triggering global refresh after AI response in InsightsSection');
+          triggerGlobalRefresh();
+        }, 500);
       } catch (error) {
         console.error('Error generating insight:', error);
         const errorMessage: Message = { 
