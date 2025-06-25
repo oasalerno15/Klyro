@@ -44,13 +44,19 @@ export default function AIAssistant() {
     if (!message.trim()) return;
 
     // Refresh usage data first
+    console.log('🔄 Refreshing usage data before paywall check...');
     await refreshSubscription();
+    
+    console.log('🔍 Current usage data:', { usage, limits });
     
     // Simple paywall check
     if (!canUseAIChat()) {
+      console.log('❌ Paywall triggered - showing modal');
       setShowPaywall(true);
       return;
     }
+
+    console.log('✅ AI chat allowed - proceeding with API call');
 
     // Add user message
     const newMessage: Message = {
@@ -70,13 +76,7 @@ export default function AIAssistant() {
         
         IMPORTANT: Keep your response SHORT and conversational - maximum 2-3 sentences total.
         
-        Context:
-        - Current Date: ${new Date().toLocaleDateString()}
-        - Today's Spending: $125.50
-        - Monthly Budget: $4000
-        - Current Spent: $2750
-        
-        Give a brief, helpful response about their finances. No bullet points, no sections, just a short conversational answer.
+        Please provide a brief, helpful response about their finances based on their actual spending data. No bullet points, no sections, just a short conversational answer.
       `;
 
       // Send to AI API
@@ -96,12 +96,15 @@ export default function AIAssistant() {
       const data = await response.json();
       const aiResponseText = data.result || "I couldn't process that request. Please try again.";
 
+      console.log('✅ AI response received, usage should be tracked');
+
       // Start typing animation
       setTimeout(() => {
         startTypingAnimation(aiResponseText);
         
         // Refresh subscription after successful response
         setTimeout(() => {
+          console.log('🔄 Refreshing usage data after AI response');
           refreshSubscription();
         }, 1000);
       }, 500);
