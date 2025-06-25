@@ -63,6 +63,7 @@ export const moodBudgetingSystemPrompt = `
  */
 export async function generateInsight(prompt: string): Promise<string> {
   // Check usage limits first - simple boolean approach
+  let canUse = false;
   try {
     const response = await fetch('/api/check-usage', {
       method: 'POST',
@@ -76,19 +77,12 @@ export async function generateInsight(prompt: string): Promise<string> {
       return "Please log in to use AI insights.";
     }
 
-    const { canUse } = await response.json();
+    const { canUse: userCanUse } = await response.json();
+    canUse = userCanUse;
+    
     if (!canUse) {
       return "🔒 You've reached your AI insight limit for this month. Upgrade to continue using AI features!";
     }
-
-    // Track usage before generating insight
-    await fetch('/api/track-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ featureType: 'ai_chats' }),
-    });
 
   } catch (error) {
     console.error('Error checking usage:', error);
@@ -150,7 +144,26 @@ export async function generateInsight(prompt: string): Promise<string> {
       return "Sorry, I received an invalid response format. Please try again.";
     }
     
-    return data.result || "Sorry, I couldn't generate an insight at this time.";
+    const aiResult = data.result || "Sorry, I couldn't generate an insight at this time.";
+    
+    // Track usage AFTER successful AI response
+    if (canUse && aiResult && !aiResult.includes("Sorry")) {
+      try {
+        await fetch('/api/track-usage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ featureType: 'ai_chats' }),
+        });
+        console.log('✅ Usage tracked successfully');
+      } catch (trackError) {
+        console.error('Error tracking usage:', trackError);
+      }
+    }
+    
+    return aiResult;
+    
   } catch (error: unknown) {
     console.error('Error generating insight:', error);
     
