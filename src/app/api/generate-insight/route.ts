@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { validateEnvironment } from '@/lib/env-validation';
+import { usageService } from '@/lib/usage-service';
 
 // Validate environment on module load
 let envStatus: { hasOpenAI: boolean; hasSupabase: boolean };
@@ -99,34 +100,48 @@ const generateContextualFallback = (merchant: string, category: string, amount: 
 
 export async function POST(request: NextRequest) {
   try {
-    const { merchant, category, amount, mood, needVsWant } = await request.json();
+    const { merchant, category, amount, mood, needVsWant, userId } = await request.json();
 
     if (!merchant || !category || !amount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Check if user is authenticated
+    if (!userId) {
+      return NextResponse.json({ error: 'User authentication required' }, { status: 401 });
+    }
+
+    // Check usage limits before generating insight
+    const canPerform = await usageService.canPerformAction(userId, 'ai_chat');
+    
+    if (!canPerform.allowed) {
+      return NextResponse.json({ 
+        error: 'Usage limit reached',
+        message: 'You have reached your AI insights limit for this billing period. Please upgrade your plan to continue.' 
+      }, { status: 403 });
+    }
+
     // Validate needVsWant if provided
     const validNeedVsWant = (needVsWant === 'Need' || needVsWant === 'Want') ? needVsWant : null;
+
+    let insight: string;
 
     // Fallback insight if no OpenAI API key or OpenAI client not initialized
     if (!envStatus.hasOpenAI || !openai) {
       console.log('💡 Using sophisticated fallback insights (OpenAI not available)');
-      return NextResponse.json({ 
-        insight: generateContextualFallback(merchant, category, amount, mood, validNeedVsWant)
-      });
-    }
-
-    try {
-      const moodContext = mood ? mood.split(':') : ['Not specified', ''];
-      const moodName = moodContext[0] || 'Not specified';
-      const moodDescription = moodContext[1] || '';
-      
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a financial behavior therapist with deep expertise in emotional psychology and behavioral economics. You help people understand the hidden emotional drivers behind their spending decisions and offer highly specific, niche interventions.
+      insight = generateContextualFallback(merchant, category, amount, mood, validNeedVsWant);
+    } else {
+      try {
+        const moodContext = mood ? mood.split(':') : ['Not specified', ''];
+        const moodName = moodContext[0] || 'Not specified';
+        const moodDescription = moodContext[1] || '';
+        
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You are a financial behavior therapist with deep expertise in emotional psychology and behavioral economics. You help people understand the hidden emotional drivers behind their spending decisions and offer highly specific, niche interventions.
 
 Your role is NOT to give generic budgeting advice like "track your spending" or "make a budget." Instead, you provide unique, context-specific suggestions that reveal unexpected connections between emotions, behavior, and money.
 
@@ -141,34 +156,41 @@ Guidelines:
 - NO emojis or bullet points
 - Keep responses to 2-3 sentences maximum
 - Make each response feel handcrafted for this specific person and situation`
-          },
-          {
-            role: "user",
-            content: `Merchant: ${merchant}
+            },
+            {
+              role: "user",
+              content: `Merchant: ${merchant}
 Category: ${category}
 Amount: $${amount}
 Classification: ${validNeedVsWant || 'Not specified'}
 Mood: ${moodName}${moodDescription ? ` (${moodDescription})` : ''}
 
 Generate a deeply personalized insight that reveals something unexpected about this purchase pattern and offers a unique, niche suggestion for addressing the underlying emotional need.`
-          }
-        ],
-        max_tokens: 150,
-        temperature: 0.8,
-      });
+            }
+          ],
+          max_tokens: 150,
+          temperature: 0.8,
+        });
 
-      const insight = response.choices[0]?.message?.content?.trim() || generateContextualFallback(merchant, category, amount, mood, validNeedVsWant);
-      
-      return NextResponse.json({ insight });
-
-    } catch (openaiError: any) {
-      console.error('OpenAI API error:', openaiError?.message || openaiError);
-      
-      // Use sophisticated fallback instead of simple error message
-      return NextResponse.json({ 
-        insight: generateContextualFallback(merchant, category, amount, mood, validNeedVsWant)
-      });
+        insight = response.choices[0]?.message?.content?.trim() || generateContextualFallback(merchant, category, amount, mood, validNeedVsWant);
+        
+      } catch (openaiError: any) {
+        console.error('OpenAI API error:', openaiError?.message || openaiError);
+        
+        // Use sophisticated fallback instead of simple error message
+        insight = generateContextualFallback(merchant, category, amount, mood, validNeedVsWant);
+      }
     }
+
+    // Track usage after successful insight generation
+    const incrementSuccess = await usageService.incrementUsage(userId, 'ai_chat');
+    if (incrementSuccess) {
+      console.log(`✅ AI insight generated and usage tracked for user ${userId}`);
+    } else {
+      console.warn(`⚠️ AI insight generated but usage tracking failed for user ${userId}`);
+    }
+    
+    return NextResponse.json({ insight });
 
   } catch (error: any) {
     console.error('Error generating insight:', error?.message || error);

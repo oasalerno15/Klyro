@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DailyBriefCard from './DailyBriefCard';
+import PaywallModal from './PaywallModal';
 import { usePaywall } from '@/hooks/usePaywall';
 import { useAuth } from '@/lib/auth';
 
@@ -54,7 +55,7 @@ const categorySuggestions = {
 
 export default function AIAssistant() {
   const { user } = useAuth();
-  const { checkFeatureAccess, incrementUsage } = usePaywall();
+  const { checkFeatureAccess, incrementUsage, paywallState, hidePaywall } = usePaywall();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -703,6 +704,15 @@ export default function AIAssistant() {
           </div>
         </motion.div>
       </AnimatePresence>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={paywallState.isOpen}
+        onClose={hidePaywall}
+        feature={paywallState.feature as 'receipt' | 'ai_chat' | 'transaction' | 'upgrade'}
+        currentPlan={paywallState.currentPlan}
+        onUpgrade={hidePaywall}
+      />
     </div>
   );
 } 

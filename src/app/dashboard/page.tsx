@@ -378,7 +378,8 @@ export default function Dashboard() {
               category: receiptData.category || 'General',
               amount: Math.abs(receiptData.amount),
               mood: receiptData.mood,
-              needVsWant: receiptData.needVsWant
+              needVsWant: receiptData.needVsWant,
+              userId: user.id
             })
           });
           
@@ -569,7 +570,8 @@ export default function Dashboard() {
               category: Array.isArray(transaction.category) ? transaction.category[0] : transaction.category,
               amount: Math.abs(transaction.amount),
               mood: mood,
-              needVsWant: needVsWant
+              needVsWant: needVsWant,
+              userId: user.id
             })
           });
           
@@ -2191,7 +2193,7 @@ export default function Dashboard() {
       <PaywallModal
         isOpen={paywallState.isOpen}
         onClose={hidePaywall}
-        feature={paywallState.feature}
+        feature={paywallState.feature as 'receipt' | 'ai_chat' | 'transaction' | 'upgrade'}
         currentPlan={paywallState.currentPlan}
         onUpgrade={() => {
           // This will be handled by the PaywallModal component directly
