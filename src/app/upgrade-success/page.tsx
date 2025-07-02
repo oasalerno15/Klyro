@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { planService, type PlanType } from '@/lib/plan-service';
 
-export default function UpgradeSuccess() {
+// Separate component that uses useSearchParams
+function UpgradeSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -150,4 +151,26 @@ export default function UpgradeSuccess() {
   }
 
   return null;
+}
+
+// Loading component for Suspense fallback
+function UpgradeSuccessLoading() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Loading</h1>
+        <p className="text-gray-600">Please wait...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function UpgradeSuccess() {
+  return (
+    <Suspense fallback={<UpgradeSuccessLoading />}>
+      <UpgradeSuccessContent />
+    </Suspense>
+  );
 } 
