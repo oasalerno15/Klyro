@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
-import PaywallModal from './PaywallModal';
+import TrialPaywallModal from './TrialPaywallModal';
 import { useSubscription } from '@/hooks/useSubscription';
 
 interface ProfileModalProps {
@@ -234,6 +234,31 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
     }
   };
 
+  const handleDownloadData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // For now, we'll show a placeholder message
+      // In a real implementation, this would call an API to generate and download user data
+      alert('Data export will be sent to your email address within 24 hours.');
+    } catch (error) {
+      console.error('Error requesting data download:', error);
+      alert('Failed to request data download. Please try again or contact support.');
+    }
+  };
+
+  const handleUpdatePaymentMethod = () => {
+    // For now, show a placeholder message
+    // In a real implementation, this would redirect to Stripe customer portal or open a payment method update modal
+    alert('Redirecting to payment method update...');
+  };
+
+  const handleViewBillingHistory = () => {
+    // For now, show a placeholder message
+    // In a real implementation, this would open a detailed billing history view or redirect to customer portal
+    alert('Opening detailed billing history...');
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -293,7 +318,7 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                 </h3>
                 
                 {/* Professional Statistics Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className={`p-6 rounded-lg ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
                     <div className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'} mb-1`}>
                       {accountStats.transactionsCount}
@@ -318,15 +343,6 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                     </div>
                     <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       Receipts Uploaded
-                    </div>
-                  </div>
-                  
-                  <div className={`p-6 rounded-lg ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
-                    <div className={`text-2xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'} mb-1`}>
-                      {usage.aiChats}
-                    </div>
-                    <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      AI Insights
                     </div>
                   </div>
                 </div>
@@ -398,7 +414,9 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                         <div className={`w-11 h-6 rounded-full peer transition-colors ${darkMode ? 'bg-gray-600 peer-checked:bg-gray-800' : 'bg-gray-200 peer-checked:bg-gray-800'} peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}></div>
                       </label>
                     </div>
-                    <button className={`w-full text-left px-4 py-3 mt-4 rounded-lg border ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'border-gray-300 hover:bg-gray-50 text-gray-700'} text-sm transition-colors`}>
+                    <button 
+                      onClick={handleDownloadData}
+                      className={`w-full text-left px-4 py-3 mt-4 rounded-lg border ${darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-300' : 'border-gray-300 hover:bg-gray-50 text-gray-700'} text-sm transition-colors`}>
                       <div className="flex items-center justify-between">
                         <span>Download My Data</span>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -433,27 +451,6 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                       }`}>
                         {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>Usage This Month</p>
-                        <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Transactions processed</p>
-                      </div>
-                      <span className={`text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {usage.transactions}/{limits.transactions === -1 ? '∞' : limits.transactions}
-                      </span>
-                    </div>
-                    <div className={`w-full rounded-full h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          limits.transactions === -1 ? 'bg-green-500' :
-                          usage.transactions >= limits.transactions ? 'bg-red-500' : 
-                          usage.transactions >= limits.transactions * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
-                        }`}
-                        style={{ 
-                          width: limits.transactions === -1 ? '20%' : `${Math.min((usage.transactions / limits.transactions) * 100, 100)}%` 
-                        }}
-                      ></div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-4">
                       <button 
@@ -500,12 +497,10 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
       {/* Paywall Modal */}
       <AnimatePresence>
         {showPaywall && (
-          <PaywallModal
+          <TrialPaywallModal
             isOpen={showPaywall}
             onClose={() => setShowPaywall(false)}
-            feature="upgrade"
-            currentPlan={getCurrentTier()}
-            onUpgrade={() => setShowPaywall(false)}
+            feature="premium features"
           />
         )}
       </AnimatePresence>
@@ -581,92 +576,102 @@ export default function ProfileModal({ user, darkMode, onClose }: ProfileModalPr
                       {subscription?.status === 'active' ? 'Active' : 'Active'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-200">
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900">{limits.transactions === -1 ? '∞' : limits.transactions}</p>
-                      <p className="text-xs text-gray-500">Transactions</p>
+                  
+                  {getCurrentTier() !== 'free' && (
+                    <div className="pt-3 border-t border-gray-200 space-y-3">
+                      {/* Payment Method */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-5 bg-gradient-to-r from-blue-600 to-blue-700 rounded text-white text-xs font-bold flex items-center justify-center">
+                            VISA
+                          </div>
+                          <span className="text-sm text-gray-700">•••• •••• •••• 4242</span>
+                        </div>
+                        <button 
+                          onClick={handleUpdatePaymentMethod}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                          Update
+                        </button>
+                      </div>
+                      
+                      {/* Next Billing */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Next billing date:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {subscription?.current_period_end ? 
+                            new Date(subscription.current_period_end).toLocaleDateString() : 
+                            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()
+                          }
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900">{limits.receipts === -1 ? '∞' : limits.receipts}</p>
-                      <p className="text-xs text-gray-500">Receipts</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900">{limits.aiChats === -1 ? '∞' : limits.aiChats}</p>
-                      <p className="text-xs text-gray-500">AI Chats</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Compact Usage */}
+                {/* Billing History */}
                 <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900">Current Usage</h4>
+                  <h4 className="font-medium text-gray-900">Recent Billing</h4>
                   
-                  {/* Transactions */}
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-gray-700">Transactions</span>
-                      <span className="text-xs text-gray-500">{usage.transactions}/{limits.transactions === -1 ? '∞' : limits.transactions}</span>
+                  {getCurrentTier() === 'free' ? (
+                    <div className="text-center py-6 text-gray-500">
+                      <svg className="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-sm">No billing history</p>
+                      <p className="text-xs text-gray-400">You're on the free plan</p>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div 
-                        className={`h-1.5 rounded-full transition-all duration-500 ${
-                          limits.transactions === -1 ? 'bg-green-500' :
-                          usage.transactions >= limits.transactions ? 'bg-red-500' : 
-                          usage.transactions >= limits.transactions * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
-                        }`}
-                        style={{ 
-                          width: limits.transactions === -1 ? '20%' : `${Math.min((usage.transactions / limits.transactions) * 100, 100)}%` 
-                        }}
-                      ></div>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Mock billing history */}
+                      <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {getCurrentTier().charAt(0).toUpperCase() + getCurrentTier().slice(1)} Plan
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date().toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-900">
+                            ${getCurrentTier() === 'starter' ? '9.99' : 
+                              getCurrentTier() === 'pro' ? '24.99' : '49.99'}
+                          </p>
+                          <p className="text-xs text-gray-500">Paid</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {getCurrentTier().charAt(0).toUpperCase() + getCurrentTier().slice(1)} Plan
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-900">
+                            ${getCurrentTier() === 'starter' ? '9.99' : 
+                              getCurrentTier() === 'pro' ? '24.99' : '49.99'}
+                          </p>
+                          <p className="text-xs text-gray-500">Paid</p>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={handleViewBillingHistory}
+                        className="w-full text-center py-2 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                        View all billing history
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Receipts */}
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-gray-700">Receipt Scans</span>
-                      <span className="text-xs text-gray-500">{usage.receipts}/{limits.receipts === -1 ? '∞' : limits.receipts}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div 
-                        className={`h-1.5 rounded-full transition-all duration-500 ${
-                          limits.receipts === -1 ? 'bg-green-500' :
-                          usage.receipts >= limits.receipts ? 'bg-red-500' : 
-                          usage.receipts >= limits.receipts * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
-                        }`}
-                        style={{ 
-                          width: limits.receipts === -1 ? '20%' : `${Math.min((usage.receipts / limits.receipts) * 100, 100)}%` 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  {/* AI Chats */}
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-gray-700">AI Conversations</span>
-                      <span className="text-xs text-gray-500">
-                        {limits.aiChats === 0 ? 'Upgrade required' : 
-                         limits.aiChats === -1 ? `${usage.aiChats}/∞` : 
-                         `${usage.aiChats}/${limits.aiChats}`}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div 
-                        className={`h-1.5 rounded-full transition-all duration-500 ${
-                          limits.aiChats === 0 ? 'bg-gray-300' :
-                          limits.aiChats === -1 ? 'bg-green-500' :
-                          usage.aiChats >= limits.aiChats ? 'bg-red-500' : 
-                          usage.aiChats >= limits.aiChats * 0.8 ? 'bg-yellow-500' : 'bg-green-500'
-                        }`}
-                        style={{ 
-                          width: limits.aiChats === 0 ? '0%' :
-                                 limits.aiChats === -1 ? '20%' : 
-                                 `${Math.min((usage.aiChats / limits.aiChats) * 100, 100)}%` 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 

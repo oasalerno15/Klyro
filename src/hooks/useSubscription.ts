@@ -62,13 +62,21 @@ export const useSubscription = () => {
       console.log('📊 Subscription query result:', { data, error });
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.error('❌ Error fetching subscription:', error);
+        if (error.message || error.details || Object.keys(error).length > 0) {
+          console.error('❌ Error fetching subscription:', error);
+        } else {
+          console.log('📋 No subscription data found for user - using free tier');
+        }
       } else {
         console.log('✅ Setting subscription:', data);
         setSubscription(data);
       }
     } catch (error) {
-      console.error('❌ Error fetching subscription:', error);
+      if (error && (error instanceof Error || Object.keys(error).length > 0)) {
+        console.error('❌ Error fetching subscription:', error);
+      } else {
+        console.log('📋 Subscription service not available - using free tier');
+      }
     } finally {
       setLoading(false);
     }
@@ -87,7 +95,11 @@ export const useSubscription = () => {
         .eq('month_year', currentMonth);
 
       if (error) {
-        console.error('Error fetching usage:', error);
+        if (error.message || error.details || Object.keys(error).length > 0) {
+          console.error('Error fetching usage:', error);
+        } else {
+          console.log('📊 Usage data not available - using defaults');
+        }
         return;
       }
 

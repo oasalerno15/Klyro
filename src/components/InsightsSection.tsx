@@ -12,7 +12,17 @@ import BudgetPieChart from './BudgetPieChart';
 import SpendingBarChart from './SpendingBarChart';
 import TrendLineChart from './TrendLineChart';
 import AIInsightsView from './AIInsightsView';
-import PaywallModal from './PaywallModal';
+import TrialPaywallModal from './TrialPaywallModal';
+import { 
+  createChatSession, 
+  addChatMessage, 
+  getUserChatSessions, 
+  getChatMessages, 
+  deleteChatSession,
+  generateChatTitle,
+  type ChatSession as DBChatSession,
+  type ChatMessage as DBChatMessage
+} from '@/utils/chatUtils';
 
 // Custom CSS for pulse animation
 const pulseStyles = `
@@ -205,6 +215,13 @@ export default function InsightsSection() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentSuggestion, setCurrentSuggestion] = useState(0);
   const [activeSuggestionCategory, setActiveSuggestionCategory] = useState<string | null>(null);
+  
+  // Typing animation states
+  const [isTyping, setIsTyping] = useState(false);
+  const [currentTypingText, setCurrentTypingText] = useState('');
+  const [fullResponse, setFullResponse] = useState('');
+  const currentResponseRef = useRef<string>('');
+  
   const suggestionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({
     mood: null,
     budget: null,
@@ -225,27 +242,81 @@ export default function InsightsSection() {
   
   // Chat history state
   const [showHistory, setShowHistory] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
+  const [chatHistory, setChatHistory] = useState<DBChatSession[]>([]);
   const [selectedHistorySession, setSelectedHistorySession] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   
   // Refs for dropdown handling
   const historyDropdownRef = useRef<HTMLDivElement>(null);
   
+  // Add session-based tracking for AI chats
+  const [sessionChatCount, setSessionChatCount] = useState(0);
+  
+  // Add paywall modal state
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
+  
+  // Auto-scroll to bottom when new messages arrive or typing animation updates
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, currentTypingText, isTyping]);
+
+  // Load chat history on component mount
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (user?.id) {
+        const sessions = await getUserChatSessions(user.id);
+        setChatHistory(sessions);
+      }
+    };
+    
+    loadChatHistory();
+  }, [user?.id]);
+  
   // Function to load a chat session
-  const loadChatSession = (sessionId: string) => {
-    const session = chatHistory.find(chat => chat.id === sessionId);
-    if (session) {
-      setMessages(session.messages);
+  const loadChatSession = async (sessionId: string) => {
+    try {
+      const messages = await getChatMessages(sessionId);
+      const formattedMessages: Message[] = messages.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      }));
+      
+      setMessages(formattedMessages);
+      setCurrentSessionId(sessionId);
       setSelectedHistorySession(sessionId);
-      setShowHistory(false); // Hide history after selection
+      setShowHistory(false);
+    } catch (error) {
+      console.error('Error loading chat session:', error);
     }
   };
   
   // Function to start new chat
   const startNewChat = () => {
     setMessages([]);
+    setCurrentSessionId(null);
     setSelectedHistorySession(null);
     setShowHistory(false);
+  };
+  
+  // Function to delete a chat session
+  const handleDeleteChatSession = async (sessionId: string) => {
+    try {
+      const success = await deleteChatSession(sessionId);
+      if (success) {
+        // Remove from local state
+        setChatHistory(prev => prev.filter(session => session.id !== sessionId));
+        
+        // If this was the current session, clear it
+        if (currentSessionId === sessionId) {
+          setMessages([]);
+          setCurrentSessionId(null);
+        }
+        
+        console.log('✅ Chat session deleted successfully');
+      }
+    } catch (error) {
+      console.error('Error deleting chat session:', error);
+    }
   };
   
   // Get the selected metric data
@@ -487,20 +558,102 @@ export default function InsightsSection() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Typing animation functions
+  const startTypingAnimation = (text: string) => {
+    setFullResponse(text);
+    currentResponseRef.current = text;
+    setCurrentTypingText('');
+    setIsTyping(true);
+    
+    let currentIndex = 0;
+    const typingInterval = setInterval(() => {
+      if (currentIndex < text.length) {
+        setCurrentTypingText(text.slice(0, currentIndex + 1));
+        currentIndex++;
+      } else {
+        clearInterval(typingInterval);
+        finishTyping();
+      }
+    }, 20); // 20ms per character
+  };
+
+  const finishTyping = () => {
+    // Use the ref to ensure we have the correct text
+    const responseText = currentResponseRef.current;
+    
+    // Add the complete AI message
+    const aiMessage: Message = {
+      role: 'assistant',
+      content: responseText
+    };
+    
+    setMessages(prev => [...prev, aiMessage]);
+    
+    // Save AI message to database
+    if (currentSessionId && user?.id) {
+      addChatMessage(currentSessionId, user.id, 'assistant', responseText);
+    }
+    
+    // Clear typing state after message is added
+    setIsTyping(false);
+    setCurrentTypingText('');
+    setFullResponse('');
+    currentResponseRef.current = '';
+    
+    // Trigger global refresh after successful response
+    setTimeout(() => {
+      triggerGlobalRefresh();
+    }, 500);
+  };
+
   const handleSend = async () => {
     if (message.trim()) {
-      // Check paywall access for AI chat
+      // Check paywall access for AI chat with session count
       console.log('🔍 AI chat attempted');
-      if (!checkFeatureAccess('ai_chat')) {
+      
+      // Enhanced check including session count
+      const canUseAI = () => {
+        // Use the paywall hook to get current usage and limits
+        const usageData = paywallState;
+        // For now, let's use the existing checkFeatureAccess but also track session
+        return checkFeatureAccess('ai_chat');
+      };
+      
+      if (!canUseAI()) {
         console.log('❌ AI chat blocked by paywall');
+        setShowPaywallModal(true);
         return; // Paywall will be shown by checkFeatureAccess
       }
-      console.log('✅ AI chat allowed');
+      
+      // Increment session counter immediately
+      setSessionChatCount(prev => prev + 1);
+      console.log('✅ AI chat allowed, session count:', sessionChatCount + 1);
+      
+      // Create or get current session
+      let sessionId = currentSessionId;
+      if (!sessionId && user?.id) {
+        // Create a new session with a title based on the first message
+        const title = generateChatTitle(message.trim());
+        const newSession = await createChatSession(user.id, title);
+        if (newSession) {
+          sessionId = newSession.id;
+          setCurrentSessionId(sessionId);
+          
+          // Update chat history
+          setChatHistory(prev => [newSession, ...prev]);
+        }
+      }
       
       // Add user message to the chat
       const userMessage: Message = { role: 'user', content: message.trim() };
       const updatedMessages = [...messages, userMessage];
       setMessages(updatedMessages);
+      
+      // Save user message to database
+      if (sessionId && user?.id) {
+        await addChatMessage(sessionId, user.id, 'user', message.trim());
+      }
+      
       setMessage('');
       setIsLoading(true);
       // Close any open suggestion dropdowns
@@ -590,7 +743,7 @@ export default function InsightsSection() {
 <mood_analysis_request>
   <user_profile>
     <user_id>user-123</user_id>
-    <name>Oscar</name>
+    <n>Oscar</n>
     <current_mood>${moodData.currentMood}</current_mood>
     <analysis_period>
       <start_date>${startDateStr}</start_date>
@@ -606,7 +759,7 @@ ${moodXml}
 ${transactionXml}
   </transaction_logs>
   
-  <query>${message.trim()}</query>
+  <query>${userMessage.content}</query>
   
   <analysis_parameters>
     <primary_focus>emotional_spending_patterns</primary_focus>
@@ -638,42 +791,48 @@ ${transactionXml}
         
         // Combined prompt with XML structure and user query
         const combinedPrompt = `
-User query: ${message.trim()}
+User query: ${userMessage.content}
+
+Please analyze this person's mood and spending data to provide actionable financial wellness insights. Keep your response conversational and supportive.
+
+Primary Focus: ${primaryCategory}
 
 ${moodAnalysisXml}
 
-Additional context (JSON):
+Additional Context (JSON):
 ${JSON.stringify(userContextJson, null, 2)}
 
-CONVERSATIONAL GUIDELINES:
-- Keep responses brief and friendly, like texting with a supportive friend
-- For simple questions, just 1-2 sentences; for complex ones, max 3-4 sentences
-- Acknowledge emotions first, especially for words like "sad", "stressed", "excited"
-- Reference specific transactions by merchant name and amount when relevant
-- Use contractions and natural language for warmth
-- Focus on one key insight rather than comprehensive analysis
-- NO emojis or bullet points
-        `;
+IMPORTANT: 
+- Keep your response friendly and conversational
+- Focus on the connection between mood and spending patterns
+- Provide 1-2 specific, actionable suggestions
+- Limit response to 3-4 sentences maximum
+- Address the user's specific question while considering their emotional state
+`;
 
-        // Call the AI function with the enhanced prompt
-        const aiResponse = await generateInsight(combinedPrompt);
+        // Call AI API
+        const response = await generateInsight(combinedPrompt);
         
-        // Add AI response to the chat
-        const assistantMessage: Message = { role: 'assistant', content: aiResponse };
-        const finalMessages = [...updatedMessages, assistantMessage];
-        setMessages(finalMessages);
-        
-        // Trigger global subscription refresh for other components (usage is tracked in API)
-        // Add a small delay to ensure database update completes before refresh
-        setTimeout(() => {
-          console.log('🔄 Triggering global refresh after AI response in InsightsSection');
-          triggerGlobalRefresh();
-        }, 500);
+        if (response) {
+          // Start typing animation instead of immediately adding message
+          setTimeout(() => {
+            startTypingAnimation(response);
+          }, 500);
+        }
       } catch (error) {
-        console.error('Error generating insight:', error);
+        // Check if this is an upgrade required error
+        if (error instanceof Error && (error as any).upgradeRequired) {
+          console.log('🚫 Plan restriction - showing paywall modal');
+          setShowPaywallModal(true);
+          setIsLoading(false);
+          return;
+        }
+        
+        console.error('Error generating AI response:', error);
+        
         const errorMessage: Message = { 
           role: 'assistant', 
-          content: "I'm sorry, I encountered an error while generating your insight. Please try again." 
+          content: "I'm sorry, I encountered an error processing your request. Please try again." 
         };
         setMessages(prev => [...prev, errorMessage]);
       } finally {
@@ -701,53 +860,108 @@ CONVERSATIONAL GUIDELINES:
     setActiveSuggestionCategory(null);
   };
 
-  // Load chat history from localStorage on mount
-  useEffect(() => {
-    // Clear ALL localStorage items that might contain chat data
-    localStorage.removeItem('klyro_chat_history');
-    localStorage.removeItem('chat_history');
-    localStorage.removeItem('messages');
-    localStorage.removeItem('ai_chat_messages');
-    
-    // Force clear all states
-    setChatHistory([]);
-    setMessages([]);
-    setSelectedHistorySession(null);
-    
-    console.log('🧹 Cleared all chat data on mount');
-  }, []);
-
-  // Save chat history to localStorage whenever it changes
-  useEffect(() => {
-    if (chatHistory.length > 0) {
-      localStorage.setItem('klyro_chat_history', JSON.stringify(chatHistory));
-    }
-  }, [chatHistory]);
-
   // Function to trigger a global subscription refresh
   const triggerGlobalRefresh = () => {
     // Dispatch a custom event that other components can listen to
     window.dispatchEvent(new CustomEvent('refreshSubscriptionData'));
   };
 
+  // Listen for plan refresh events after successful upgrade
+  useEffect(() => {
+    const handlePlanRefresh = async () => {
+      console.log('🔄 Plan refresh event received in InsightsSection');
+      // Force refresh any plan-related state or caches here
+      // This could trigger a re-check of plan permissions
+    };
+
+    window.addEventListener('refreshSubscriptionData', handlePlanRefresh);
+    
+    // Also listen for window focus to refresh plan status
+    const handleWindowFocus = () => {
+      console.log('🔄 Window focused - checking plan status');
+      // This helps catch plan upgrades that happened in another tab
+    };
+    
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('refreshSubscriptionData', handlePlanRefresh);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, []);
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 mt-8">
       {/* Header */}
-      <div className="mb-8 text-center">
-        <div className="flex items-center justify-center gap-4 mb-2">
-          <h1 className="text-3xl font-extrabold text-emerald-700 tracking-tight">Klyro AI</h1>
-          {messages.length > 0 && (
+      <div className="mb-8 text-center relative">
+        {/* Centered Title */}
+        <h1 className="text-3xl font-extrabold text-emerald-700 tracking-tight mb-2">Klyro AI</h1>
+        
+        {/* Buttons positioned absolutely */}
+        <div className="absolute top-0 right-0 flex items-center gap-2">
+          {/* Chat History Button */}
+          <div className="relative" ref={historyDropdownRef}>
             <button
-              onClick={() => {
-                setMessages([]);
-                setChatHistory([]);
-                localStorage.removeItem('klyro_chat_history');
-              }}
-              className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition-colors"
+              onClick={() => setShowHistory(!showHistory)}
+              className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition-colors flex items-center gap-1.5"
             >
-              Clear Chat
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              History
             </button>
-          )}
+
+            {/* History Dropdown */}
+            {showHistory && (
+              <div className="absolute top-full right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                {chatHistory.length === 0 ? (
+                  <div className="p-4 text-sm text-gray-500 text-center">
+                    No chat history yet. Start a conversation to see it here.
+                  </div>
+                ) : (
+                  <div className="p-2">
+                    {chatHistory.map((session) => (
+                      <div key={session.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded group">
+                        <button
+                          onClick={() => loadChatSession(session.id)}
+                          className="flex-1 text-left text-sm text-gray-700 hover:text-gray-900 truncate"
+                        >
+                          {session.title}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteChatSession(session.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                          title="Delete chat session"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H9a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Clear Chat Button */}
+          <button
+            onClick={() => {
+              setMessages([]);
+              setCurrentSessionId(null);
+              setShowHistory(false);
+            }}
+            className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition-colors flex items-center gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H9a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Clear Chat
+          </button>
         </div>
         <p className="text-gray-500 text-base">Ask anything about your mood, spending, or habits. Klyro AI is here to help!</p>
       </div>
@@ -782,7 +996,24 @@ CONVERSATIONAL GUIDELINES:
               </div>
             </div>
           ))}
-          {isLoading && (
+          
+          {/* Typing Animation */}
+          {isTyping && (
+            <div className="group w-full">
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-1.5 font-medium">
+                Klyro
+              </div>
+              <div className="text-base leading-relaxed whitespace-pre-wrap break-words w-full text-gray-600 letter-spacing-tight">
+                <div className="space-y-3">
+                  {currentTypingText.split('\n\n').map((paragraph, i) => (
+                    <p key={i} className={`${i === 0 ? 'text-gray-800' : ''}`}>{paragraph}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {isLoading && !isTyping && (
             <div className="group flex flex-col items-start">
               <motion.div
                 className="flex items-center gap-0.5 mt-2 mb-1"
@@ -993,12 +1224,10 @@ CONVERSATIONAL GUIDELINES:
       </div>
 
       {/* Paywall Modal */}
-      <PaywallModal
-        isOpen={paywallState.isOpen}
-        onClose={hidePaywall}
-        feature={paywallState.feature as 'receipt' | 'ai_chat' | 'transaction' | 'upgrade'}
-        currentPlan={paywallState.currentPlan}
-        onUpgrade={hidePaywall}
+      <TrialPaywallModal
+        isOpen={showPaywallModal}
+        onClose={() => setShowPaywallModal(false)}
+        feature="AI chat"
       />
     </div>
   );

@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { transactions, recentMoods, timeframe = '7d' } = await request.json();
+    const { transactions, recentMoods, timeframe = '7d', pieChartData } = await request.json();
 
     // If no transactions, return empty insights
     if (!transactions || transactions.length === 0) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return acc;
     }, {});
 
-    const prompt = `You are an AI financial analyst. Based on this REAL user spending data, generate 3-4 highly specific insights:
+    const prompt = `You are an AI financial behavior analyst. Based on this REAL user data, generate 3-4 highly specific insights:
 
 ACTUAL USER DATA (${timeframe}):
 - Total spent: $${totalSpent.toFixed(2)}
@@ -42,19 +42,27 @@ ACTUAL USER DATA (${timeframe}):
 - Top categories: ${Object.entries(categoryAnalysis).slice(0, 3).map(([cat, amt]: [string, any]) => `${cat}: $${amt.toFixed(2)}`).join(', ')}
 - Top merchants: ${Object.entries(merchantAnalysis).slice(0, 3).map(([merchant, amt]: [string, any]) => `${merchant}: $${amt.toFixed(2)}`).join(', ')}
 
-Generate insights that are SPECIFIC to this user's actual data. Include:
-1. Need vs Want percentage analysis of their actual spending
-2. Specific merchant spending patterns (use actual merchant names from their data)
-3. Behavioral insights based on their actual transaction patterns
-4. Category analysis with real percentages
+PIE CHART ANALYSIS:
+- Mood-driven spending: ${pieChartData?.moodDrivenPercent || 0}% of total spending ($${pieChartData?.moodDrivenSpending?.toFixed(2) || '0'})
+- Want vs Need ratio: ${pieChartData?.wantPercent || 0}% wants, ${pieChartData?.needPercent || 0}% needs
+- Transaction frequency: ${pieChartData?.transactionsPerWeek || 0} transactions/week (${pieChartData?.activityLevel || 'Unknown'})
+- Need spending: $${pieChartData?.needSpending?.toFixed(2) || '0'}
+- Want spending: $${pieChartData?.wantSpending?.toFixed(2) || '0'}
+
+Generate insights that combine TRANSACTION DATA with PIE CHART ANALYSIS. Include:
+1. Behavioral patterns linking mood states to specific spending categories
+2. Want vs Need spending insights with actual percentages and merchant patterns
+3. Transaction frequency analysis and what it reveals about spending habits
+4. Cross-analysis between mood-driven spending and merchant preferences
 
 Each insight MUST:
-- Use REAL data from above (actual merchant names, real percentages, real spending amounts)
+- Use REAL data from above (actual merchant names, real percentages, exact amounts)
+- Combine transaction details with pie chart behavioral analysis
 - Be under 65 characters for ticker display
 - Include specific numbers/percentages
 - NO EMOJIS - clean professional text only
 
-Format as JSON array. Focus on their ACTUAL spending behavior, not generic advice.
+Format as JSON array. Focus on BEHAVIORAL INSIGHTS that connect pie chart patterns to actual spending.
 
 Return only the JSON array, no other text.`;
 

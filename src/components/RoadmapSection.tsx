@@ -340,7 +340,7 @@ export default function RoadmapSection({ user: passedUser }: RoadmapSectionProps
       // Get current session for auth
       const { data: { session } } = await supabase.auth.getSession();
       
-      const response = await fetch(`/api/calendar/load?user_id=${userId}`, {
+      const response = await fetch(`/api/calendar/load`, {
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token && {
@@ -356,24 +356,30 @@ export default function RoadmapSection({ user: passedUser }: RoadmapSectionProps
         console.log('✅ Found saved data:', savedData);
         
         // Restore form data
-        if (savedData.calendar_form) {
-          console.log('📝 Restoring form data:', savedData.calendar_form);
-          setForm(savedData.calendar_form);
+        if (savedData.form_data) {
+          console.log('📝 Restoring form data:', savedData.form_data);
+          setForm(savedData.form_data);
         }
         
-        // Restore task statuses and calendar result
-        if (savedData.task_statuses) {
-          console.log('📊 Restoring task data:', savedData.task_statuses);
-          setEventStatuses(savedData.task_statuses.event_statuses || {});
-          setCustomEvents(savedData.task_statuses.custom_events || {});
-          
-          if (savedData.task_statuses.calendar_result) {
-            console.log('📅 Restoring calendar result and showing visual roadmap');
-            console.log('📅 Calendar data:', savedData.task_statuses.calendar_result);
-            setResult(savedData.task_statuses.calendar_result);
-            setShowVisualRoadmap(true);
-            console.log('📅 Set showVisualRoadmap to true');
-          }
+        // Restore event statuses
+        if (savedData.event_statuses) {
+          console.log('📊 Restoring event statuses:', savedData.event_statuses);
+          setEventStatuses(savedData.event_statuses);
+        }
+        
+        // Restore custom events  
+        if (savedData.custom_events) {
+          console.log('📅 Restoring custom events:', savedData.custom_events);
+          setCustomEvents(savedData.custom_events);
+        }
+        
+        // Restore calendar result
+        if (savedData.result_data) {
+          console.log('📅 Restoring calendar result and showing visual roadmap');
+          console.log('📅 Calendar data:', savedData.result_data);
+          setResult(savedData.result_data);
+          setShowVisualRoadmap(true);
+          console.log('📅 Set showVisualRoadmap to true');
         }
       } else {
         console.log('ℹ️ No saved data found, starting fresh');
@@ -468,13 +474,20 @@ export default function RoadmapSection({ user: passedUser }: RoadmapSectionProps
     animateProgress();
     
     try {
-      // Use the new dedicated calendar API
+      // Use the new dedicated calendar API with properly mapped field names
       const response = await fetch('/api/generate-calendar', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          age: form.age,
+          familyStatus: form.family,  // Map family -> familyStatus
+          income: form.income,
+          goals: form.goals,
+          riskTolerance: form.risk,  // Map risk -> riskTolerance
+          mentalStatus: form.goalDescription || ''
+        }),
       });
 
       const data = await response.json();
@@ -487,9 +500,9 @@ export default function RoadmapSection({ user: passedUser }: RoadmapSectionProps
       setProgress(100);
       
       setTimeout(() => {
-        setResult(data.data); // The API returns { success: true, data: {...} }
+        setResult(data.calendar); // The API returns { calendar: {...} }
         setStep(2);
-        console.log('🎉 AI calendar generation complete, data:', data.data);
+        console.log('🎉 AI calendar generation complete, data:', data.calendar);
       }, 400);
       
     } catch (err: any) {

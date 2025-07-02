@@ -100,7 +100,7 @@ const generateContextualFallback = (merchant: string, category: string, amount: 
 
 export async function POST(request: NextRequest) {
   try {
-    const { merchant, category, amount, mood, needVsWant, userId } = await request.json();
+    const { merchant, category, amount, mood, needVsWant, userId, spendingContext } = await request.json();
 
     if (!merchant || !category || !amount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -136,6 +136,19 @@ export async function POST(request: NextRequest) {
         const moodName = moodContext[0] || 'Not specified';
         const moodDescription = moodContext[1] || '';
         
+        // Build context string if spending context is available
+        let contextualInfo = '';
+        if (spendingContext) {
+          contextualInfo = `
+
+SPENDING PATTERN CONTEXT:
+- Your total spending so far: $${spendingContext.totalSpending?.toFixed(2) || '0'}
+- Your mood-driven spending: ${spendingContext.moodDrivenPercent || 0}% of total
+- Your want vs need ratio: ${spendingContext.wantPercent || 0}% wants
+- Your transaction frequency: ${spendingContext.transactionsPerWeek || 0} transactions/week
+- Recent spending patterns: ${spendingContext.recentTransactions?.map((tx: any) => `${tx.merchant} ($${tx.amount}) - ${tx.needVsWant || 'unclassified'}`).join(', ') || 'No recent data'}`;
+        }
+        
         const response = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
@@ -145,11 +158,14 @@ export async function POST(request: NextRequest) {
 
 Your role is NOT to give generic budgeting advice like "track your spending" or "make a budget." Instead, you provide unique, context-specific suggestions that reveal unexpected connections between emotions, behavior, and money.
 
+You have access to the user's broader spending patterns and should reference these patterns to make your insights more personalized and relevant.
+
 Guidelines:
 - Write like a wise, emotionally intelligent therapist who understands money psychology
-- Offer ONE specific, unusual, actionable technique that's tailored to this exact scenario
+- Reference their overall spending patterns when relevant (e.g., "This fits your pattern of..." or "Unlike your usual...")
+- Offer ONE specific, unusual, actionable technique that's tailored to this exact scenario AND their broader patterns
 - Avoid generic advice about budgeting, tracking, or monitoring
-- Focus on the emotional/psychological patterns revealed by this purchase
+- Focus on the emotional/psychological patterns revealed by this purchase in context of their overall behavior
 - Be insightful about what this spending pattern might indicate about deeper needs
 - Suggest creative alternatives or reframes that address the root emotional need
 - Use natural, flowing language - never robotic or clinical
@@ -159,13 +175,14 @@ Guidelines:
             },
             {
               role: "user",
-              content: `Merchant: ${merchant}
+              content: `CURRENT PURCHASE:
+Merchant: ${merchant}
 Category: ${category}
 Amount: $${amount}
 Classification: ${validNeedVsWant || 'Not specified'}
-Mood: ${moodName}${moodDescription ? ` (${moodDescription})` : ''}
+Mood: ${moodName}${moodDescription ? ` (${moodDescription})` : ''}${contextualInfo}
 
-Generate a deeply personalized insight that reveals something unexpected about this purchase pattern and offers a unique, niche suggestion for addressing the underlying emotional need.`
+Generate a deeply personalized insight that considers both this specific purchase AND their broader spending patterns. Reveal something unexpected about how this purchase fits into their overall behavioral patterns and offer a unique suggestion that addresses the underlying emotional need while considering their spending history.`
             }
           ],
           max_tokens: 150,

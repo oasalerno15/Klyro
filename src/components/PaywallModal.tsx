@@ -37,7 +37,7 @@ const PLAN_FEATURES = {
     features: [
       '20 transactions/month',
       '20 receipt scans/month', 
-      '10 AI chats/month',
+      '20 AI chats/month',
       'Basic mood tracking',
       'Email support'
     ]

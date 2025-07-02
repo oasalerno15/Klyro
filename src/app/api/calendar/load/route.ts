@@ -19,21 +19,12 @@ export async function GET(req: NextRequest) {
     );
 
     console.log('📥 Load API called');
-    const { searchParams } = new URL(req.url);
-    const user_id = searchParams.get('user_id');
-
-    console.log('📥 Looking for user_id:', user_id);
-
-    if (!user_id) {
-      console.log('❌ No user_id provided');
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
-    }
-
+    
     // Get auth header from request
     const authHeader = req.headers.get('authorization');
     console.log('🔐 Auth header present:', !!authHeader);
 
-    // Create supabase client with auth if available
+    // Create supabase client with auth
     let supabaseWithAuth = supabase;
     if (authHeader) {
       supabaseWithAuth = createClient(
@@ -49,11 +40,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.log('📥 Querying Supabase for user:', user_id);
+    // Get authenticated user (SECURITY: Don't trust user_id from URL)
+    const { data: { user }, error: authError } = await supabaseWithAuth.auth.getUser();
+    
+    if (authError || !user) {
+      console.log('❌ Authentication failed:', authError?.message);
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    console.log('📥 Querying Supabase for authenticated user:', user.id);
     const { data, error } = await supabaseWithAuth
       .from('calendar_data')
       .select('*')
-      .eq('user_id', user_id)
+      .eq('user_id', user.id)
       .single();
 
     if (error) {
@@ -62,15 +61,28 @@ export async function GET(req: NextRequest) {
         console.log('ℹ️ No calendar data found for user');
         return NextResponse.json({ 
           success: true, 
-          data: null 
+          data: {
+            form_data: null,
+            event_statuses: {},
+            custom_events: {},
+            result_data: null
+          }
         });
       }
       console.error('❌ Supabase error:', error);
       return NextResponse.json({ error: 'Failed to load calendar data' }, { status: 500 });
     }
 
-    console.log('✅ Load successful:', data);
-    return NextResponse.json({ success: true, data });
+    // Transform the data back to the format expected by the frontend
+    const transformedData = {
+      form_data: data.calendar_form,
+      event_statuses: data.task_statuses || {},
+      custom_events: data.step_statuses || {},
+      result_data: data.calendar_form?.calendar_result || null
+    };
+
+    console.log('✅ Load successful:', transformedData);
+    return NextResponse.json({ success: true, data: transformedData });
 
   } catch (error) {
     console.error('❌ Load calendar error:', error);

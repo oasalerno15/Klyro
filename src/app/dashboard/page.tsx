@@ -25,9 +25,11 @@ import UpgradePrompt from '@/components/UpgradePrompt';
 import { generateInsight } from '@/utils/aiUtils';
 import { toast } from 'sonner';
 import AIAssistant from '@/components/AIAssistant';
-import ReceiptUploadModal from '@/components/ReceiptUploadModal';
 import PlaceholderChart from '@/components/PlaceholderChart';
-import ReceiptAnalysisFlow from '@/components/ReceiptAnalysisFlow';
+import InsightsSection from '@/components/InsightsSection';
+import SpendingBarChart from '@/components/SpendingBarChart';
+import TrendLineChart from '@/components/TrendLineChart';
+import StressDonutChart from '@/components/StressDonutChart';
 
 // Placeholder data - in real app would come from API
 const analyticsData = {
@@ -328,6 +330,7 @@ export default function Dashboard() {
   const [aiForecastData, setAiForecastData] = useState<any>(null);
   const [showSubscriptionSuccess, setShowSubscriptionSuccess] = useState(false);
   const [subscriptionSuccessMessage, setSubscriptionSuccessMessage] = useState('');
+  const [dashboardChartDisplay, setDashboardChartDisplay] = useState<'want-need' | 'mood-driven' | 'frequency' | null>('want-need');
 
   const supabase = createClient();
 
@@ -393,6 +396,20 @@ export default function Dashboard() {
       if (receiptData.needVsWant && receiptData.mood) {
         console.log('🧠 Generating AI insight...');
         try {
+          // Calculate current spending patterns for context
+          const totalSpending = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+          const moodDrivenTransactions = transactions.filter(tx => 
+            tx.mood_at_purchase && !tx.mood_at_purchase.toLowerCase().includes('neutral')
+          );
+          const moodDrivenPercent = totalSpending > 0 ? Math.round((moodDrivenTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0) / totalSpending) * 100) : 0;
+          
+          const wantTransactions = transactions.filter(tx => tx.need_vs_want === 'Want');
+          const needTransactions = transactions.filter(tx => tx.need_vs_want === 'Need');
+          const wantSpending = wantTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+          const needSpending = needTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+          const taggedSpending = wantSpending + needSpending;
+          const wantPercent = taggedSpending > 0 ? Math.round((wantSpending / taggedSpending) * 100) : 0;
+          
           const response = await fetch('/api/generate-insight', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -402,7 +419,20 @@ export default function Dashboard() {
               amount: Math.abs(receiptData.amount),
               mood: receiptData.mood,
               needVsWant: receiptData.needVsWant,
-              userId: user.id
+              userId: user.id,
+              spendingContext: {
+                totalSpending,
+                moodDrivenPercent,
+                wantPercent,
+                transactionsPerWeek: transactions.length,
+                recentTransactions: transactions.slice(0, 5).map(tx => ({
+                  merchant: tx.name,
+                  amount: Math.abs(tx.amount),
+                  category: Array.isArray(tx.category) ? tx.category[0] : tx.category,
+                  needVsWant: tx.need_vs_want,
+                  mood: tx.mood_at_purchase
+                }))
+              }
             })
           });
           
@@ -591,6 +621,20 @@ export default function Dashboard() {
         // Generate new AI insight based on mood if provided
         const transaction = transactions.find(t => t.id === transactionId);
         if (transaction) {
+          // Calculate current spending patterns for context
+          const totalSpending = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+          const moodDrivenTransactions = transactions.filter(tx => 
+            tx.mood_at_purchase && !tx.mood_at_purchase.toLowerCase().includes('neutral')
+          );
+          const moodDrivenPercent = totalSpending > 0 ? Math.round((moodDrivenTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0) / totalSpending) * 100) : 0;
+          
+          const wantTransactions = transactions.filter(tx => tx.need_vs_want === 'Want');
+          const needTransactions = transactions.filter(tx => tx.need_vs_want === 'Need');
+          const wantSpending = wantTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+          const needSpending = needTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+          const taggedSpending = wantSpending + needSpending;
+          const wantPercent = taggedSpending > 0 ? Math.round((wantSpending / taggedSpending) * 100) : 0;
+          
           const response = await fetch('/api/generate-insight', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -600,7 +644,20 @@ export default function Dashboard() {
               amount: Math.abs(transaction.amount),
               mood: mood,
               needVsWant: needVsWant,
-              userId: user.id
+              userId: user.id,
+              spendingContext: {
+                totalSpending,
+                moodDrivenPercent,
+                wantPercent,
+                transactionsPerWeek: transactions.length,
+                recentTransactions: transactions.slice(0, 5).map(tx => ({
+                  merchant: tx.name,
+                  amount: Math.abs(tx.amount),
+                  category: Array.isArray(tx.category) ? tx.category[0] : tx.category,
+                  needVsWant: tx.need_vs_want,
+                  mood: tx.mood_at_purchase
+                }))
+              }
             })
           });
           
@@ -818,27 +875,29 @@ export default function Dashboard() {
   // Function to generate ticker items based on user's actual transactions
   const generateTickerItems = (transactions: any[], aiInsights: string[]) => {
     // Calculate spending by merchant
-    const merchantSpending: Record<string, number> = transactions.reduce((acc: Record<string, number>, tx: any) => {
+    const merchantData: Record<string, number> = {};
+
+    transactions.forEach((tx: any) => {
       const merchant = tx.name || 'Unknown';
-      acc[merchant] = (acc[merchant] || 0) + Math.abs(tx.amount);
-      return acc;
-    }, {});
+      const amount = Math.abs(tx.amount);
+      merchantData[merchant] = (merchantData[merchant] || 0) + amount;
+    });
 
     // Get total spending
-    const totalSpending: number = Object.values(merchantSpending).reduce((sum: number, amount: number) => sum + amount, 0);
+    const totalSpending = Object.values(merchantData).reduce((sum, amount) => sum + amount, 0);
 
     // Get top merchants
-    const topMerchants = Object.entries(merchantSpending)
-      .sort(([,a], [,b]) => (b as number) - (a as number))
-      .slice(0, 4); // Show top 4 merchants
+    const topMerchants = Object.entries(merchantData)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 4);
 
     const tickerItems: any[] = [];
 
-    // Only show real data - no fake content
+    // Add merchant spending data
     if (topMerchants.length > 0) {
-      // Add merchant spending data with icons
-      topMerchants.forEach(([merchant, amount]: [string, number]) => {
+      topMerchants.forEach(([merchant, amount]) => {
         const percentage = totalSpending > 0 ? ((amount / totalSpending) * 100).toFixed(1) : '0';
+        
         tickerItems.push({
           type: 'merchant',
           icon: getMerchantLogo(merchant),
@@ -850,12 +909,12 @@ export default function Dashboard() {
       });
     }
 
-    // Add AI-generated insights (real data only)
+    // Add AI-generated insights
     aiInsights.forEach(insight => {
       tickerItems.push({ type: 'stat', content: <span>{insight}</span> });
     });
 
-    // If no data at all, show analytics placeholder
+    // If no data, show placeholder
     if (tickerItems.length === 0) {
       tickerItems.push(
         { type: 'stat', content: <span>📊 Analytics will display here once you upload receipts</span> },
@@ -876,7 +935,7 @@ export default function Dashboard() {
       case 'finances':
         return <FinanceSection />;
       case 'insights':
-        return <AIAssistant />;
+        return <InsightsSection />;
       case 'roadmap':
         return <RoadmapSection user={user} />;
       case 'dashboard':
@@ -898,14 +957,14 @@ export default function Dashboard() {
                 {[...Array(8)].map((_, i) => (
                   <React.Fragment key={i}>
                     {generateTickerItems(transactions, aiTickerInsights).map((item, idx) => (
-                      <div key={`ticker-item-${i}-${idx}`} className="flex items-center gap-3 px-6 flex-shrink-0">
+                      <div key={`ticker-item-${i}-${idx}`} className="flex items-center gap-2 px-4 flex-shrink-0">
                         {item.type === 'merchant' ? (
                           <>
-                            <span className="w-8 h-8 flex items-center justify-center">{(item as any).icon}</span>
-                            <span className="text-gray-700">{item.content}</span>
+                            <span className="w-6 h-6 flex items-center justify-center flex-shrink-0">{(item as any).icon}</span>
+                            <span className="text-gray-700 whitespace-nowrap">{item.content}</span>
                           </>
                         ) : (
-                          <span className="text-gray-700">{item.content}</span>
+                          <span className="text-gray-700 whitespace-nowrap">{item.content}</span>
                         )}
                       </div>
                     ))}
@@ -1034,9 +1093,9 @@ export default function Dashboard() {
                                           <span className="font-semibold text-gray-900">{transaction.name}</span>
                                           <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                                             transaction.need_vs_want === 'Need' 
-                                              ? 'bg-blue-100 text-blue-800' 
+                                              ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' 
                                               : transaction.need_vs_want === 'Want'
-                                              ? 'bg-orange-100 text-orange-800'
+                                              ? 'bg-green-700 text-white'
                                               : 'bg-gray-100 text-gray-600'
                                           }`}>
                                             {transaction.need_vs_want || 'Processing...'}
@@ -1235,9 +1294,9 @@ export default function Dashboard() {
                                     <span className="font-medium text-gray-900">{transaction.name}</span>
                                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                                       transaction.need_vs_want === 'Need' 
-                                        ? 'bg-blue-100 text-blue-800' 
+                                        ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' 
                                         : transaction.need_vs_want === 'Want'
-                                        ? 'bg-orange-100 text-orange-800'
+                                        ? 'bg-green-700 text-white'
                                         : 'bg-gray-100 text-gray-600'
                                     }`}>
                                       {transaction.need_vs_want || 'Processing...'}
@@ -1363,50 +1422,22 @@ export default function Dashboard() {
                     )}
                   </div>
                 </motion.div>
-                {/* Financial Stress Analysis Card */}
-                <div className="bg-white rounded-xl shadow p-6 flex flex-col items-start w-full min-h-[180px] justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Financial Stress Analysis
-                  </h3>
-                  
-                  <div className="w-full">
-                    <div className="flex items-start mb-3 w-full justify-between">
-                      <span className="text-4xl font-bold text-gray-900">18%</span>
-                      <span className="flex items-center text-base font-medium text-gray-700 mt-1">
-                        <span className="w-3 h-3 rounded-full bg-green-400 mr-2"></span>
-                        Low Stress
-                      </span>
-                    </div>
-                    
-                    {/* Stress Analysis */}
-                    <div className="mb-3">
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        Your spending patterns show consistent behavior. Transaction frequency and category distribution indicate stable financial habits.
-                      </p>
-                    </div>
-                    
-                    {/* Stress Indicators */}
-                    <div className="bg-green-50 p-3 rounded-lg">
-                      <p className="text-sm font-medium text-green-800">
-                        Stress Indicators:
-                      </p>
-                      <div className="text-sm text-green-700 mt-1 space-y-1">
-                        <div className="flex justify-between">
-                          <span>• Category concentration:</span>
-                          <span className="font-medium">67%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>• Transaction frequency:</span>
-                          <span className="font-medium">4.2/week</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>• Spending consistency:</span>
-                          <span className="font-medium">High</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Spending Stress Analysis Card */}
+                <StressDonutChart 
+                  data={{
+                    moodDrivenSpending: transactions.filter(tx => 
+                      tx.mood_at_purchase && tx.mood_at_purchase.includes('Stress')
+                    ).length > 0 ? 45 : 25,
+                    wantVsNeedSpending: transactions.length > 0 ? Math.round(
+                      transactions.filter(tx => tx.need_vs_want === 'Want').length / 
+                      Math.max(transactions.length, 1) * 100
+                    ) : 35,
+                    transactionFrequency: transactions.length > 0 ? Math.min(transactions.length * 8, 100) : 40
+                  }}
+                  transactions={transactions}
+                  dashboardDisplay={dashboardChartDisplay}
+                  onDashboardDisplayChange={setDashboardChartDisplay}
+                />
               </div>
             </div>
 
@@ -1496,8 +1527,8 @@ export default function Dashboard() {
                             {tx.need_vs_want ? (
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 tx.need_vs_want === 'Need' 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-orange-100 text-orange-800'
+                                  ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' 
+                                  : 'bg-green-700 text-white'
                               }`}>
                                 {tx.need_vs_want}
                               </span>
@@ -1558,6 +1589,7 @@ export default function Dashboard() {
   const fetchAiTickerInsights = useCallback(async () => {
     try {
       const recentTransactions = transactions.slice(0, 10); // Last 10 transactions
+      
       const response = await fetch('/api/generate-ticker-insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2211,9 +2243,6 @@ export default function Dashboard() {
         {showUpgradePrompt && (
           <UpgradePrompt
             feature="upgrade"
-            currentTier={usageData?.subscription?.subscription_tier || 'free'}
-            onClose={() => setShowUpgradePrompt(false)}
-            userId={user?.id}
           />
         )}
       </AnimatePresence>

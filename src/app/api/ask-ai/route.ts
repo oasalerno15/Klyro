@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serverUsageService } from '@/lib/usage-service-server';
+import { serverPlanService } from '@/lib/plan-service-server';
 
 // Utility function to add delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -65,44 +66,34 @@ export async function POST(request: Request) {
     const { prompt, systemPrompt } = await request.json();
 
     if (!prompt) {
-      return NextResponse.json(
-        { error: 'Prompt is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // Get user and check AI chat limits
+    // Get the current user
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Check if user can use AI chat
-    const canChat = await serverUsageService.canPerformAction(user.id, 'ai_chat');
-    if (!canChat.allowed) {
+    // Check usage limits
+    const canPerform = await serverUsageService.canPerformAction(user.id, 'ai_chat');
+    
+    if (!canPerform.allowed) {
       return NextResponse.json({ 
-        error: 'AI chat limit reached',
-        limit: canChat.limit,
-        tier: canChat.tier,
-        upgradeRequired: true
+        error: 'Usage limit reached',
+        upgradeRequired: true,
+        message: 'You have reached your AI chat limit for this billing period. Please upgrade your plan to continue.'
       }, { status: 403 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'OpenAI API key is not configured' },
-        { status: 500 }
-      );
-    }
+    // Increment usage first
+    await serverUsageService.incrementUsage(user.id, 'ai_chat');
 
-    // Get user's transaction data from Supabase
     let transactionContext = '';
+
+    // Get user's transaction data and calculate the SAME percentages as dashboard
     try {
       const { data: transactions, error } = await supabase
         .from('transactions')
@@ -116,8 +107,41 @@ export async function POST(request: Request) {
         const todayTransactions = (transactions as Transaction[]).filter((t: Transaction) => t.date === todayStr);
         const recentTransactions = transactions.slice(0, 10) as Transaction[];
         
+        // Calculate spending analysis using the SAME logic as dashboard
+        const totalSpending = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+        // Want vs Need calculations (only tagged transactions)
+        const wantTransactions = transactions.filter(tx => tx.need_vs_want === 'Want');
+        const needTransactions = transactions.filter(tx => tx.need_vs_want === 'Need');
+        const wantSpending = wantTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        const needSpending = needTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        const taggedSpending = wantSpending + needSpending;
+        const wantPercent = taggedSpending > 0 ? Math.round((wantSpending / taggedSpending) * 100) : 0;
+        const needPercent = taggedSpending > 0 ? (100 - wantPercent) : 0;
+        
+        // Mood-driven spending calculations  
+        const moodDrivenTransactions = transactions.filter(tx => 
+          tx.mood_at_purchase && !tx.mood_at_purchase.toLowerCase().includes('neutral')
+        );
+        const moodDrivenSpending = moodDrivenTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        const moodDrivenPercent = totalSpending > 0 ? Math.round((moodDrivenSpending / totalSpending) * 100) : 0;
+        
         transactionContext = `
-USER'S RECENT TRANSACTION DATA:
+USER'S SPENDING ANALYSIS (matches dashboard data):
+
+WANT vs NEED BREAKDOWN (Tagged Transactions Only):
+- Want spending: $${wantSpending.toFixed(2)} (${wantPercent}% of tagged spending)
+- Need spending: $${needSpending.toFixed(2)} (${needPercent}% of tagged spending)
+- Tagged transactions: ${wantTransactions.length + needTransactions.length} of ${transactions.length} total
+- Untagged spending: $${(totalSpending - taggedSpending).toFixed(2)}
+
+MOOD-DRIVEN ANALYSIS:
+- Mood-driven spending: $${moodDrivenSpending.toFixed(2)} (${moodDrivenPercent}% of total spending)
+- Neutral/calm spending: $${(totalSpending - moodDrivenSpending).toFixed(2)}
+
+TRANSACTION FREQUENCY:
+- Total transactions: ${transactions.length}
+- Transaction frequency: ${transactions.length} transactions per period
 
 Today's Transactions (${todayStr}):
 ${todayTransactions.length > 0 
@@ -127,7 +151,7 @@ ${todayTransactions.length > 0
 Recent Transactions (last 10):
 ${recentTransactions.map((t: Transaction) => `- ${t.date}: ${t.name} - $${Math.abs(t.amount)} (${t.need_vs_want || 'unclassified'}) ${t.mood_at_purchase ? `[Mood: ${t.mood_at_purchase}]` : ''}`).join('\n')}
 
-Total transactions available: ${transactions.length}
+IMPORTANT: Use these EXACT percentages in your response. The dashboard shows ${wantPercent}% wants and ${needPercent}% needs based on tagged transactions only.
 `;
       } else {
         transactionContext = '\nUSER TRANSACTION DATA: No transactions found or unable to access data.\n';
@@ -137,11 +161,19 @@ Total transactions available: ${transactions.length}
       transactionContext = '\nUSER TRANSACTION DATA: Unable to fetch transaction data.\n';
     }
 
-    const defaultSystemPrompt = `You are a helpful AI financial assistant. Provide clear, actionable advice based on the user's financial situation. Keep responses concise but informative.`;
+    const defaultSystemPrompt = `You are a helpful AI financial assistant. Provide clear, actionable advice based on the user's financial situation. Keep responses concise but informative. Always use the EXACT percentages provided in the transaction context - these match what the user sees on their dashboard.`;
 
     const fullPrompt = transactionContext ? 
       `Context: ${transactionContext}\n\nUser Question: ${prompt}` : 
       prompt;
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'OpenAI API key is not configured' },
+        { status: 500 }
+      );
+    }
 
     const requestBody = {
       model: 'gpt-4o-mini', // Ultra-cheap model: ~$0.00015 per 1K tokens (vs gpt-3.5-turbo ~$0.001)
@@ -166,8 +198,6 @@ Total transactions available: ${transactions.length}
       if (response.status === 403 && errorData.error === 'AI chat limit reached') {
         return NextResponse.json({ 
           error: 'AI chat limit reached',
-          limit: canChat.limit,
-          tier: canChat.tier,
           upgradeRequired: true
         }, { status: 403 });
       }
@@ -196,17 +226,6 @@ Total transactions available: ${transactions.length}
     if (!data || !data.choices || !data.choices[0]?.message?.content) {
       console.error('Invalid API response format:', data);
       return NextResponse.json({ error: 'Invalid response format' }, { status: 500 });
-    }
-    
-    // Increment usage after successful AI chat
-    console.log('🔄 About to increment AI chat usage for user:', user.id);
-    const usageIncremented = await serverUsageService.incrementUsage(user.id, 'ai_chat');
-    console.log('📊 Usage increment result:', usageIncremented);
-    
-    if (!usageIncremented) {
-      console.warn('⚠️ Failed to increment AI chat usage');
-    } else {
-      console.log('✅ Successfully incremented AI chat usage');
     }
     
     return NextResponse.json({ result: data.choices[0].message.content || "I couldn't generate a response. Please try again." });

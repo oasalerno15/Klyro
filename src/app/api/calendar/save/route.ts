@@ -60,18 +60,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prepare the data to save - use the correct field names for database
+    // Prepare the data to save - match the database schema exactly
     const saveData = {
       user_id,
-      calendar_form: form_data,
-      task_statuses: {
-        event_statuses: event_statuses || {},
-        custom_events: custom_events || {},
-        calendar_result: result_data || null
-      }
+      calendar_form: form_data || {},
+      task_statuses: event_statuses || {},
+      step_statuses: custom_events || {}
     };
 
-    console.log('💾 Prepared save data:', saveData);
+    // Add calendar result to form data if available
+    if (result_data) {
+      saveData.calendar_form = {
+        ...saveData.calendar_form,
+        calendar_result: result_data
+      };
+    }
+
+    // Validate that calendar_form is not empty (database requires it)
+    if (!saveData.calendar_form || Object.keys(saveData.calendar_form).length === 0) {
+      console.log('⚠️ calendar_form is empty, adding default structure');
+      saveData.calendar_form = {
+        age: '',
+        family: '',
+        income: '',
+        goals: [],
+        risk: '',
+        goalDescription: ''
+      };
+    }
+
+    console.log('💾 Prepared save data:', JSON.stringify(saveData, null, 2));
 
     // Use upsert to insert or update
     const { data, error } = await supabaseWithAuth
@@ -83,8 +101,17 @@ export async function POST(req: NextRequest) {
       .select();
 
     if (error) {
-      console.error('❌ Supabase error:', error);
-      return NextResponse.json({ error: 'Failed to save calendar data', details: error }, { status: 500 });
+      console.error('❌ Detailed Supabase error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      return NextResponse.json({ 
+        error: 'Failed to save calendar data', 
+        details: error.message,
+        hint: error.hint 
+      }, { status: 500 });
     }
 
     console.log('✅ Save successful:', data);

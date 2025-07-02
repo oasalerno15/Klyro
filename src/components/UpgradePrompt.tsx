@@ -1,256 +1,158 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { loadStripe } from '@stripe/stripe-js';
-import { Lock, Star, Zap, Check } from 'lucide-react';
+'use client';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+import { useState } from 'react';
+import { usePlan } from '@/hooks/usePlan';
 
 interface UpgradePromptProps {
-  feature: string;
-  currentTier: string;
-  onClose?: () => void;
-  userId?: string;
+  feature?: string;
+  className?: string;
 }
 
-const FEATURE_DESCRIPTIONS = {
-  transaction: 'transaction logging',
-  receipt: 'receipt uploads',
-  calendar: 'financial calendar',
-  ai_assistant: 'AI conversation assistant',
-  advanced_insights: 'advanced analytics',
-  custom_categories: 'custom categories',
-  export_data: 'data export',
+const STRIPE_LINKS = {
+  starter: 'https://buy.stripe.com/test_00w4gy5ikd3j4cx8PmcbC00',
+  pro: 'https://buy.stripe.com/test_8x27sK124fbr4cx4z6cbC01',
+  premium: 'https://buy.stripe.com/test_6oU7sKaCE8N39wRghOcbC02'
 };
 
-const TIER_BENEFITS = {
-  starter: {
-    price: '$9.99',
-    features: [
-      '50 transactions per month',
-      '10 receipt uploads',
-      'Basic mood tracking',
-      'Dashboard access',
-      'Email support'
-    ]
-  },
-  pro: {
-    price: '$24.99',
-    features: [
-      '500 transactions per month',
-      '100 receipt uploads',
-      'Advanced insights & analytics',
-      'Financial calendar',
-      'Goal tracking',
-      'Custom categories',
-      'Priority support'
-    ]
-  },
-  premium: {
-    price: '$49.99',
-    features: [
-      'Unlimited transactions',
-      'Unlimited receipts',
-      'AI conversation assistant',
-      'Premium calendar features',
-      'Data export',
-      'Priority support',
-      'Everything in Pro'
-    ]
-  }
+const PLAN_PRICING = {
+  starter: { price: '$9.99', features: ['AI insights', '20 transactions', '20 AI chats', 'Basic support'] },
+  pro: { price: '$24.99', features: ['Everything in Starter', '50 transactions', '100 AI chats', 'Priority support'] },
+  premium: { price: '$49.99', features: ['Everything in Pro', 'Unlimited transactions', 'Unlimited AI chats', 'Premium support'] }
 };
 
-export default function UpgradePrompt({ feature, currentTier, onClose, userId }: UpgradePromptProps) {
-  const featureName = FEATURE_DESCRIPTIONS[feature as keyof typeof FEATURE_DESCRIPTIONS] || feature;
-  
-  const handleUpgrade = async (tier: 'starter' | 'pro' | 'premium') => {
-    if (!userId) {
-      alert('Please sign in to upgrade your subscription');
-      return;
-    }
+export default function UpgradePrompt({ feature = 'AI insights', className = '' }: UpgradePromptProps) {
+  const { plan, getPlanDisplayName } = usePlan();
+  const [showPlans, setShowPlans] = useState(false);
 
-    try {
-      const stripe = await stripePromise;
-      if (!stripe) throw new Error('Stripe failed to load');
-
-      // Get the appropriate price ID
-      const priceIds = {
-        starter: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID,
-        pro: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID,
-        premium: process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID,
-      };
-
-      const response = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          priceId: priceIds[tier],
-          userId,
-          successUrl: `${window.location.origin}/dashboard?upgrade=success`,
-          cancelUrl: `${window.location.origin}/dashboard?upgrade=cancelled`,
-        }),
-      });
-
-      const { sessionId, url } = await response.json();
-      
-      if (url) {
-        window.location.href = url;
-      } else {
-        const result = await stripe.redirectToCheckout({ sessionId });
-        if (result.error) {
-          console.error('Stripe checkout error:', result.error);
-          alert('Payment failed. Please try again.');
-        }
-      }
-    } catch (error) {
-      console.error('Upgrade error:', error);
-      alert('Failed to initiate upgrade. Please try again.');
-    }
+  const handleUpgrade = (planType: 'starter' | 'pro' | 'premium') => {
+    window.open(STRIPE_LINKS[planType], '_blank');
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-gray-900 to-gray-700 text-white p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <Lock className="w-6 h-6" />
+  if (showPlans) {
+    return (
+      <div className={`bg-white border border-gray-200 rounded-lg p-6 ${className}`}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold text-gray-900">Choose Your Plan</h3>
+          <button
+            onClick={() => setShowPlans(false)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Object.entries(PLAN_PRICING).map(([planKey, details]) => (
+            <div key={planKey} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+              <div className="text-center mb-4">
+                <h4 className="text-lg font-semibold capitalize">{planKey}</h4>
+                <div className="text-2xl font-bold text-gray-900 mt-1">
+                  {details.price}
+                  <span className="text-sm font-normal text-gray-500">/month</span>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold">Upgrade Required</h2>
-                <p className="text-gray-200">
-                  You've reached the limit for {featureName} on the {currentTier} plan
-                </p>
-              </div>
+              
+              <ul className="space-y-2 mb-6">
+                {details.features.map((feature, index) => (
+                  <li key={index} className="flex items-center text-sm">
+                    <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => handleUpgrade(planKey as 'starter' | 'pro' | 'premium')}
+                className={`w-full py-2 px-4 rounded font-medium transition-colors ${
+                  planKey === 'pro' 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                }`}
+              >
+                Upgrade to {planKey.charAt(0).toUpperCase() + planKey.slice(1)}
+              </button>
             </div>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="text-white/80 hover:text-white text-2xl"
-              >
-                ×
-              </button>
-            )}
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 ${className}`}>
+      <div className="flex items-start space-x-4">
+        <div className="flex-shrink-0">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
           </div>
         </div>
-
-        {/* Plans */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Starter Plan */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="border-2 border-gray-200 rounded-xl p-6 relative hover:border-gray-300 transition-colors"
+        
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Upgrade Required
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            You're currently on the <span className="font-medium">{getPlanDisplayName()}</span> plan. 
+            To access {feature}, please upgrade to Starter, Pro, or Premium.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => setShowPlans(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <div className="text-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Starter</h3>
-                <div className="text-3xl font-bold text-gray-900 mt-2">
-                  {TIER_BENEFITS.starter.price}
-                  <span className="text-sm font-normal text-gray-500">/month</span>
-                </div>
-              </div>
-              
-              <ul className="space-y-3 mb-6">
-                {TIER_BENEFITS.starter.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 text-gray-600" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => handleUpgrade('starter')}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-3 px-6 rounded-lg transition-colors"
-              >
-                Upgrade to Starter
-              </button>
-            </motion.div>
-
-            {/* Pro Plan - Most Popular */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="border-2 border-gray-900 rounded-xl p-6 relative bg-gray-50 transform scale-105"
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              View Plans
+            </button>
+            
+            <button 
+              onClick={() => handleUpgrade('pro')}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-gray-900 text-white px-6 py-2 rounded-full text-sm font-medium shadow-lg whitespace-nowrap flex items-center gap-2">
-                  <Star className="w-4 h-4" />
-                  Most Popular
-                </span>
-              </div>
-              
-              <div className="text-center mb-4 pt-4">
-                <h3 className="text-xl font-bold text-gray-900">Pro</h3>
-                <div className="text-3xl font-bold text-gray-900 mt-2">
-                  {TIER_BENEFITS.pro.price}
-                  <span className="text-sm font-normal text-gray-500">/month</span>
-                </div>
-              </div>
-              
-              <ul className="space-y-3 mb-6">
-                {TIER_BENEFITS.pro.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 text-gray-900" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => handleUpgrade('pro')}
-                className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-              >
-                Upgrade to Pro
-              </button>
-            </motion.div>
-
-            {/* Premium Plan */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="border-2 border-gray-200 rounded-xl p-6 relative hover:border-gray-300 transition-colors"
-            >
-              <div className="text-center mb-4">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <h3 className="text-xl font-bold text-gray-900">Premium</h3>
-                  <Zap className="w-5 h-5 text-yellow-500" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 mt-2">
-                  {TIER_BENEFITS.premium.price}
-                  <span className="text-sm font-normal text-gray-500">/month</span>
-                </div>
-              </div>
-              
-              <ul className="space-y-3 mb-6">
-                {TIER_BENEFITS.premium.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm">
-                    <Check className="w-4 h-4 text-gray-600" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => handleUpgrade('premium')}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-3 px-6 rounded-lg transition-colors"
-              >
-                Upgrade to Premium
-              </button>
-            </motion.div>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-8 text-center text-sm text-gray-500">
-            <p>All plans include a 14-day free trial. Cancel anytime.</p>
-            <p className="mt-1">Upgrade or downgrade your plan as needed.</p>
+              Quick Upgrade to Pro
+            </button>
           </div>
         </div>
-      </motion.div>
+      </div>
+      
+      {/* Feature comparison */}
+      <div className="mt-6 pt-6 border-t border-blue-200">
+        <h4 className="text-sm font-medium text-gray-900 mb-3">What you'll get with any paid plan:</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="flex items-center text-sm text-gray-600">
+            <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            AI-powered insights
+          </div>
+          <div className="flex items-center text-sm text-gray-600">
+            <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            More transactions
+          </div>
+          <div className="flex items-center text-sm text-gray-600">
+            <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Advanced analytics
+          </div>
+          <div className="flex items-center text-sm text-gray-600">
+            <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Priority support
+          </div>
+        </div>
+      </div>
     </div>
   );
 } 

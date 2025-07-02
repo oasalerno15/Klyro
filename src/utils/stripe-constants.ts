@@ -16,7 +16,7 @@ export const SUBSCRIPTION_LIMITS = {
   starter: {
     transactions: 20,
     receipts: 20,
-    aiChats: 10,
+    aiChats: 20,
     calendar: true,
     advanced_insights: false,
     custom_categories: false,

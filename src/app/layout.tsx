@@ -70,13 +70,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <head>
-        <script
-          type="text/javascript"
-          src="https://s3.tradingview.com/tv.js"
-          async
-        ></script>
-      </head>
       <body className={`${inter.className} antialiased font-sans`}>
         <AuthProvider>
           {children}
